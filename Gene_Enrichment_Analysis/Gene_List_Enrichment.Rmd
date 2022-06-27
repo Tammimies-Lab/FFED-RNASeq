@@ -1,0 +1,447 @@
+---
+title: "Gene List Enrichment Analysis"
+author: "Abishek Arora"
+date: "23/06/2022"
+---
+
+# Gene List Enrichment - phyper Function
+
+The phyper function of the base package in R makes it possible to check for enrichment of a list of differentially expressed genes or differential exon usage, in a gene list of interest. For this it uses hypergeometric testing to generate a p value for the enrichment.
+
+```{r}
+# Load dependencies for the analysis.
+rm(list = ls())
+library("dplyr")
+GRCh38_IDs <- read.delim("/Gene_List_Enrichment/DEG/GRCh38_IDs.txt")
+```
+
+## Pb - DEG Enrichment
+
+```{r}
+# Import and clean up gene list for analysis.
+Pb_DEG <- read.csv("/Gene_List_Enrichment/DEG/Pb_Genes.csv", sep=,)
+Pb_DEG <- Pb_DEG[Pb_DEG$baseMean> 20, ]
+Pb_DEG <- filter(Pb_DEG, ensembl != "NA")
+Pb_DEG_sig <- Pb_DEG[Pb_DEG$padj < 0.05,]
+Pb_backgroundGeneList <- Pb_DEG$ensembl
+Pb_backgroundGeneList <- unique(Pb_backgroundGeneList)
+Pb_backgroundGeneList <- as.data.frame(Pb_backgroundGeneList)
+names(Pb_backgroundGeneList)[names(Pb_backgroundGeneList) == "Pb_backgroundGeneList"] <- "ensembl"
+
+# Ensembl IDs were mapped from symbols using IDs downloaded from ensembl biomart GRCh38:
+Pb_backgroundGeneList <- left_join(Pb_backgroundGeneList, GRCh38_IDs)
+Pb_backgroundGeneList <- filter(Pb_backgroundGeneList, ensembl != "NA")
+Pb_backgroundGeneList <- Pb_backgroundGeneList$ensembl
+```
+
+### SFARI
+
+```{r}
+# Use SFARI genes.
+SFARI_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/SFARI_list.txt", header = FALSE)
+SFARI_list$ensembl <- with(GRCh38_IDs, ensembl[match(SFARI_list$V1, symbol)])
+SFARI_list <- filter(SFARI_list, ensembl != "NA")
+SFARI_list <- unique(SFARI_list)
+SFARI_list$Term <- rep("SFARI", length(SFARI_list$ensembl))
+SFARI_list <- SFARI_list[,c(2:3)]
+colnames(SFARI_list) <- c("gene", "term")
+
+# Testing with phyper.
+q1 <- length(intersect(Pb_DEG_sig$ensembl, SFARI_list$gene)) -1
+m1 <- nrow(SFARI_list)
+n1 <- length(setdiff(Pb_backgroundGeneList, SFARI_list$gene))
+k1 <- nrow(Pb_DEG_sig)
+Pb_SFARI_para <- c("Common Genes:", q1, "Gene List:", m1, "Universe w/o Gene List:", n1, "DEGs:", k1)
+Pb_SFARI_para
+Pb_SFARI_p <- phyper(q1, m1, n1, k1, lower.tail = FALSE)
+Pb_SFARI_p
+```
+
+### SFARI Selected
+
+```{r}
+# Use SFARI selected genes (with gene score S,1,2).
+SFARI_sel_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/SFARI_selected_list.txt", header = FALSE)
+SFARI_sel_list$ensembl <- with(GRCh38_IDs, ensembl[match(SFARI_sel_list$V1, symbol)])
+SFARI_sel_list <- filter(SFARI_sel_list, ensembl != "NA")
+SFARI_sel_list <- unique(SFARI_sel_list)
+SFARI_sel_list$Term <- rep("SFARI", length(SFARI_sel_list$ensembl))
+SFARI_sel_list <- SFARI_sel_list[,c(2:3)]
+colnames(SFARI_sel_list) <- c("gene", "term")
+
+# Testing with phyper.
+q2 <- length(intersect(Pb_DEG_sig$ensembl, SFARI_sel_list$gene)) -1
+m2 <- nrow(SFARI_sel_list)
+n2 <- length(setdiff(Pb_backgroundGeneList, SFARI_sel_list$gene))
+k2 <- nrow(Pb_DEG_sig)
+Pb_SFARI_sel_para <- c("Common Genes:", q2, "Gene List:", m2, "Universe w/o Gene List:", n2, "DEGs:", k2)
+Pb_SFARI_sel_para
+Pb_SFARI_sel_p <- phyper(q2,m2,n2,k2, lower.tail = FALSE)
+Pb_SFARI_sel_p
+```
+
+### NDD
+
+```{r}
+# NDD gene list.
+DD_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/NDD_list.txt", header = FALSE)
+DD_list$ensembl <- with(GRCh38_IDs, ensembl[match(DD_list$V1, symbol)])
+DD_list <- filter(DD_list, ensembl != "NA")
+DD_list <- unique(DD_list)
+DD_list$Term <- rep("DD", length(DD_list$ensembl))
+DD_list <- DD_list[,c(2:3)]
+colnames(DD_list) <- c("gene", "term")
+
+# Testing with phyper.
+q3 <- length(intersect(Pb_DEG_sig$ensembl, DD_list$gene)) -1
+m3 <- nrow(DD_list)
+n3 <- length(setdiff(Pb_backgroundGeneList, DD_list$gene))
+k3 <- nrow(Pb_DEG_sig)
+Pb_DD_para <- c("Common Genes:", q3, "Gene List:", m3, "Universe w/o Gene List:", n3, "DEGs:", k3)
+Pb_DD_para
+Pb_DD_p <- phyper(q3,m3,n3,k3, lower.tail = FALSE)
+Pb_DD_p
+```
+
+### Epilepsy
+
+```{r}
+# Epilepsy syndromes genes version 2.2 PanelApp (Feb2020).
+EPI_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/GENES_Genetic epilepsy syndromes_Version 2.2_PanelApp.txt", header = FALSE)
+EPI_list$ensembl <- with(GRCh38_IDs, ensembl[match(EPI_list$V1, symbol)])
+EPI_list <- filter(EPI_list, ensembl != "NA")
+EPI_list <- unique(EPI_list)
+EPI_list$Term <- rep("EPI", length(EPI_list$ensembl))
+EPI_list <- EPI_list[,c(2:3)]
+colnames(EPI_list) <- c("gene", "term")
+
+# Testing with phyper.
+q4 <- length(intersect(Pb_DEG_sig$ensembl, EPI_list$gene)) -1
+m4 <- nrow(EPI_list)
+n4 <- length(setdiff(Pb_backgroundGeneList, EPI_list$gene))
+k4 <- nrow(Pb_DEG_sig)
+Pb_EPI_para <- c("Common Genes:", q4, "Gene List:", m4, "Universe w/o Gene List:", n4, "DEGs:", k4)
+Pb_EPI_para
+Pb_EPI_p <- phyper(q4,m4,n4,k4, lower.tail = FALSE)
+Pb_EPI_p
+```
+
+### ID
+
+```{r}
+# Intellectual disability version 3.2 PanelApp (Feb2020).
+ID_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/GENES_Intellectual_Disability_Version 3.2_PanelApp.txt", header = FALSE)
+ID_list$ensembl <- with(GRCh38_IDs, ensembl[match(ID_list$V1, symbol)])
+ID_list <- filter(ID_list, ensembl != "NA")
+ID_list <- unique(ID_list)
+ID_list$Term <- rep("ID", length(ID_list$ensembl))
+ID_list <- ID_list[,c(2:3)]
+colnames(ID_list) <- c("gene", "term")
+
+# Testing with phyper.
+q5 <- length(intersect(Pb_DEG_sig$ensembl, ID_list$gene)) -1
+m5 <- nrow(ID_list)
+n5 <- length(setdiff(Pb_backgroundGeneList, ID_list$gene))
+k5 <- nrow(Pb_DEG_sig)
+Pb_ID_para <- c("Common Genes:", q5, "Gene List:", m5, "Universe w/o Gene List:", n5, "DEGs:", k5)
+Pb_ID_para
+Pb_ID_p <- phyper(q5,m5,n5,k5, lower.tail = FALSE)
+Pb_ID_p
+```
+
+## FH - DEG Enrichment
+
+```{r}
+# Import and clean up gene list for analysis.
+FH_DEG <- read.csv("/Gene_List_Enrichment/DEG/FH_Genes.csv", sep=,)
+FH_DEG <- FH_DEG[FH_DEG$baseMean> 20, ]
+FH_DEG <- filter(FH_DEG, ensembl != "NA")
+FH_DEG_sig <- FH_DEG[FH_DEG$padj < 0.05,]
+FH_backgroundGeneList <- FH_DEG$ensembl
+FH_backgroundGeneList <- unique(FH_backgroundGeneList)
+FH_backgroundGeneList <- as.data.frame(FH_backgroundGeneList)
+names(FH_backgroundGeneList)[names(FH_backgroundGeneList)== "FH_backgroundGeneList"] <- "ensembl"
+
+# Ensembl IDs were mapped from symbols using IDs downloaded from ensembl biomart GRCh37:
+FH_backgroundGeneList <- left_join(FH_backgroundGeneList, GRCh38_IDs)
+FH_backgroundGeneList <- filter(FH_backgroundGeneList, ensembl != "NA")
+FH_backgroundGeneList <- FH_backgroundGeneList$ensembl
+```
+
+### SFARI
+
+```{r}
+# Use SFARI genes.
+SFARI_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/SFARI_list.txt", header = FALSE)
+SFARI_list$ensembl <- with(GRCh38_IDs, ensembl[match(SFARI_list$V1, symbol)])
+SFARI_list <- filter(SFARI_list, ensembl != "NA")
+SFARI_list <- unique(SFARI_list)
+SFARI_list$Term <- rep("SFARI", length(SFARI_list$ensembl))
+SFARI_list <- SFARI_list[,c(2:3)]
+colnames(SFARI_list) <- c("gene", "term")
+
+# Testing with phyper.
+q6 <- length(intersect(FH_DEG_sig$ensembl, SFARI_list$gene)) -1
+m6 <- nrow(SFARI_list)
+n6 <- length(setdiff(FH_backgroundGeneList, SFARI_list$gene))
+k6 <- nrow(FH_DEG_sig)
+FH_SFARI_para <- c("Common Genes:", q6, "Gene List:", m6, "Universe w/o Gene List:", n6, "DEGs:", k6)
+FH_SFARI_para
+FH_SFARI_p <- phyper(q6,m6,n6,k6, lower.tail = FALSE)
+FH_SFARI_p
+```
+
+### SFARI - Selected
+
+```{r}
+# Use SFARI selected genes (with gene score S,1,2).
+SFARI_sel_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/SFARI_selected_list.txt", header = FALSE)
+SFARI_sel_list$ensembl <- with(GRCh38_IDs, ensembl[match(SFARI_sel_list$V1, symbol)])
+SFARI_sel_list <- filter(SFARI_sel_list, ensembl != "NA")
+SFARI_sel_list <- unique(SFARI_sel_list)
+SFARI_sel_list$Term <- rep("SFARI", length(SFARI_sel_list$ensembl))
+SFARI_sel_list <- SFARI_sel_list[,c(2:3)]
+colnames(SFARI_sel_list) <- c("gene", "term")
+
+# Testing with phyper.
+q7 <- length(intersect(FH_DEG_sig$ensembl, SFARI_sel_list$gene)) -1
+m7 <- nrow(SFARI_sel_list)
+n7 <- length(setdiff(FH_backgroundGeneList, SFARI_sel_list$gene))
+k7 <- nrow(FH_DEG_sig)
+FH_SFARI_sel_para <- c("Common Genes:", q7, "Gene List:", m7, "Universe w/o Gene List:", n7, "DEGs:", k7)
+FH_SFARI_sel_para
+FH_SFARI_sel_p <- phyper(q7,m7,n7,k7, lower.tail = FALSE)
+FH_SFARI_sel_p
+```
+
+### NDD
+
+```{r}
+# In-house NDD gene list.
+DD_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/NDD_list.txt", header = FALSE)
+DD_list$ensembl <- with(GRCh38_IDs, ensembl[match(DD_list$V1, symbol)])
+DD_list <- filter(DD_list, ensembl != "NA")
+DD_list <- unique(DD_list)
+DD_list$Term <- rep("DD", length(DD_list$ensembl))
+DD_list <- DD_list[,c(2:3)]
+colnames(DD_list) <- c("gene", "term")
+
+# Testing with phyper.
+q8 <- length(intersect(FH_DEG_sig$ensembl, DD_list$gene)) -1
+m8 <- nrow(DD_list)
+n8 <- length(setdiff(FH_backgroundGeneList, DD_list$gene))
+k8 <- nrow(FH_DEG_sig)
+FH_DD_para <- c("Common Genes:", q8, "Gene List:", m8, "Universe w/o Gene List:", n8, "DEGs:", k8)
+FH_DD_para
+FH_DD_p <- phyper(q8, m8, n8, k8, lower.tail = FALSE)
+FH_DD_p
+```
+
+### Epilepsy
+
+```{r}
+# Epilepsy syndromes genes version 2.2 PanelApp (Feb2020).
+EPI_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/GENES_Genetic epilepsy syndromes_Version 2.2_PanelApp.txt", header = FALSE)
+EPI_list$ensembl <- with(GRCh38_IDs, ensembl[match(EPI_list$V1, symbol)])
+EPI_list <- filter(EPI_list, ensembl != "NA")
+EPI_list <- unique(EPI_list)
+EPI_list$Term <- rep("EPI", length(EPI_list$ensembl))
+EPI_list <- EPI_list[,c(2:3)]
+colnames(EPI_list) <- c("gene", "term")
+
+# Testing with phyper.
+q9 <- length(intersect(FH_DEG_sig$ensembl, EPI_list$gene)) -1
+m9 <- nrow(EPI_list)
+n9 <- length(setdiff(FH_backgroundGeneList, EPI_list$gene))
+k9 <- nrow(FH_DEG_sig)
+FH_EPI_para <- c("Common Genes:", q9, "Gene List:", m9, "Universe w/o Gene List:", n9, "DEGs:", k9)
+FH_EPI_para
+FH_EPI_p <- phyper(q9, m9, n9, k9, lower.tail = FALSE)
+FH_EPI_p
+```
+
+### ID
+
+```{r}
+#Intellectual disability version 3.2 PanelApp (Feb2020).
+ID_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/GENES_Intellectual_Disability_Version 3.2_PanelApp.txt", header = FALSE)
+ID_list$ensembl <- with(GRCh38_IDs, ensembl[match(ID_list$V1, symbol)])
+ID_list <- filter(ID_list, ensembl != "NA")
+ID_list <- unique(ID_list)
+ID_list$Term <- rep("ID", length(ID_list$ensembl))
+ID_list <- ID_list[,c(2:3)]
+colnames(ID_list) <- c("gene", "term")
+
+# Testing with phyper.
+q10 <- length(intersect(FH_DEG_sig$ensembl, ID_list$gene)) -1
+m10 <- nrow(ID_list)
+n10 <- length(setdiff(FH_backgroundGeneList, ID_list$gene))
+k10 <- nrow(FH_DEG_sig)
+FH_ID_para <- c("Common Genes:", q10, "Gene List:", m10, "Universe w/o Gene List:", n10, "DEGs:", k10)
+FH_ID_para
+FH_ID_p <- phyper(q10, m10, n10, k10, lower.tail = FALSE)
+FH_ID_p
+```
+
+## Correction for multiple comparissons
+
+```{r}
+# Pb - FDR Method.
+p.vals <- c(Pb_SFARI_p, Pb_SFARI_sel_p, Pb_DD_p, Pb_EPI_p, Pb_ID_p)
+p.adj <- p.adjust(p.vals, method = "fdr", n = length(p.vals))
+p.adj.df <- as.data.frame(p.adj)
+write.csv(p.adj.df,"Pb_padj.csv", row.names = FALSE)
+```
+
+```{r}
+# FH - FDR Method.
+p.vals <- c(FH_SFARI_p, FH_SFARI_sel_p, FH_DD_p, FH_EPI_p, FH_ID_p)
+p.adj <- p.adjust(p.vals, method = "fdr", n = length(p.vals))
+p.adj.df <- as.data.frame(p.adj)
+write.csv(p.adj.df,"FH_padj.csv", row.names = FALSE)
+```
+
+## BPA - DEU (AF22) Enrichment
+
+```{r}
+BPA_DEG <- read.csv("/Gene_List_Enrichment/DEG/BPA_Genes.csv", sep=,)
+BPA_DEG <- BPA_DEG[BPA_DEG$baseMean> 20, ]
+BPA_DEG <- filter(BPA_DEG, ensembl != "NA")
+BPA_DEU_sig <- read.delim("/Gene_List_Enrichment/DEG/BPA_AF22_DEU_sig.txt")
+BPA_DEU_sig <- BPA_DEU_sig$ensembl
+BPA_DEU_sig <- unique(BPA_DEU_sig)
+BPA_backgroundGeneList <- BPA_DEG$ensembl
+BPA_backgroundGeneList <- unique(BPA_backgroundGeneList)
+BPA_backgroundGeneList <- as.data.frame(BPA_backgroundGeneList)
+names(BPA_backgroundGeneList)[names(BPA_backgroundGeneList) == "BPA_backgroundGeneList"] <- "ensembl"
+
+# Ensembl IDs were mapped from symbols using IDs downloaded from ensembl biomart GRCh38:
+BPA_backgroundGeneList <- left_join(BPA_backgroundGeneList, GRCh38_IDs)
+BPA_backgroundGeneList <- filter(BPA_backgroundGeneList, ensembl != "NA")
+BPA_backgroundGeneList <- BPA_backgroundGeneList$ensembl
+```
+
+### SFARI
+
+```{r}
+# Use SFARI genes.
+SFARI_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/SFARI_list.txt", header = FALSE)
+SFARI_list$ensembl <- with(GRCh38_IDs, ensembl[match(SFARI_list$V1, symbol)])
+SFARI_list <- filter(SFARI_list, ensembl != "NA")
+SFARI_list <- unique(SFARI_list)
+SFARI_list$Term <- rep("SFARI", length(SFARI_list$ensembl))
+SFARI_list <- SFARI_list[,c(2:3)]
+colnames(SFARI_list) <- c("gene", "term")
+
+# Testing with phyper.
+q11 <- length(intersect(BPA_DEU_sig, SFARI_list$gene)) -1
+m11 <- nrow(SFARI_list)
+n11 <- length(setdiff(BPA_backgroundGeneList, SFARI_list$gene))
+k11 <- length(BPA_DEU_sig)
+BPA_SFARI_para <- c("Common Genes:", q11, "Gene List:", m11, "Universe w/o Gene List:", n11, "DEUs:", k11)
+BPA_SFARI_para
+BPA_SFARI_p <- phyper(q11, m11, n11, k11, lower.tail = FALSE)
+BPA_SFARI_p
+```
+
+### SFARI - Selected
+
+```{r}
+# Use SFARI selected genes (with gene score S,1,2).
+SFARI_sel_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/SFARI_selected_list.txt", header = FALSE)
+SFARI_sel_list$ensembl <- with(GRCh38_IDs, ensembl[match(SFARI_sel_list$V1, symbol)])
+SFARI_sel_list <- filter(SFARI_sel_list, ensembl != "NA")
+SFARI_sel_list <- unique(SFARI_sel_list)
+SFARI_sel_list$Term <- rep("SFARI", length(SFARI_sel_list$ensembl))
+SFARI_sel_list <- SFARI_sel_list[,c(2:3)]
+colnames(SFARI_sel_list) <- c("gene", "term")
+
+# Testing with phyper.
+q12 <- length(intersect(BPA_DEU_sig, SFARI_sel_list$gene)) -1
+m12 <- nrow(SFARI_sel_list)
+n12 <- length(setdiff(BPA_backgroundGeneList, SFARI_sel_list$gene))
+k12 <- length(BPA_DEU_sig)
+BPA_SFARI_sel_para <- c("Common Genes:", q12, "Gene List:", m12, "Universe w/o Gene List:", n12, "DEUs:", k12)
+BPA_SFARI_sel_para
+BPA_SFARI_sel_p <- phyper(q12, m12, n12, k12, lower.tail = FALSE)
+BPA_SFARI_sel_p
+```
+
+### NDD
+
+```{r}
+# In-house NDD gene list.
+DD_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/NDD_list.txt", header = FALSE)
+DD_list$ensembl <- with(GRCh38_IDs, ensembl[match(DD_list$V1, symbol)])
+DD_list <- filter(DD_list, ensembl != "NA")
+DD_list <- unique(DD_list)
+DD_list$Term <- rep("DD", length(DD_list$ensembl))
+DD_list <- DD_list[,c(2:3)]
+colnames(DD_list) <- c("gene", "term")
+
+# Testing with phyper.
+q13 <- length(intersect(BPA_DEU_sig, DD_list$gene)) -1
+m13 <- nrow(DD_list)
+n13 <- length(setdiff(BPA_backgroundGeneList, DD_list$gene))
+k13 <- length(BPA_DEU_sig)
+BPA_DD_para <- c("Common Genes:", q13, "Gene List:", m13, "Universe w/o Gene List:", n13, "DEUs:", k13)
+BPA_DD_para
+BPA_DD_p <- phyper(q13, m13, n13, k13, lower.tail = FALSE)
+BPA_DD_p
+```
+
+### Epilepsy
+
+```{r}
+# Epilepsy syndromes genes version 2.2 PanelApp (Feb2020).
+EPI_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/GENES_Genetic epilepsy syndromes_Version 2.2_PanelApp.txt", header = FALSE)
+EPI_list$ensembl <- with(GRCh38_IDs, ensembl[match(EPI_list$V1, symbol)])
+EPI_list <- filter(EPI_list, ensembl != "NA")
+EPI_list <- unique(EPI_list)
+EPI_list$Term <- rep("EPI", length(EPI_list$ensembl))
+EPI_list <- EPI_list[,c(2:3)]
+colnames(EPI_list) <- c("gene", "term")
+
+# Testing with phyper.
+q14 <- length(intersect(BPA_DEU_sig, EPI_list$gene)) -1
+m14 <- nrow(EPI_list)
+n14 <- length(setdiff(BPA_backgroundGeneList, EPI_list$gene))
+k14 <- length(BPA_DEU_sig)
+BPA_EPI_para <- c("Common Genes:", q14, "Gene List:", m14, "Universe w/o Gene List:", n14, "DEUs:", k14)
+BPA_EPI_para
+BPA_EPI_p <- phyper(q14, m14, n14, k14, lower.tail = FALSE)
+BPA_EPI_p
+```
+
+### ID
+
+```{r}
+#Intellectual disability version 3.2 PanelApp (Feb2020).
+ID_list <- read.csv("/Gene_List_Enrichment/Gene_Database_Lists/GENES_Intellectual_Disability_Version 3.2_PanelApp.txt", header = FALSE)
+ID_list$ensembl <- with(GRCh38_IDs, ensembl[match(ID_list$V1, symbol)])
+ID_list <- filter(ID_list, ensembl != "NA")
+ID_list <- unique(ID_list)
+ID_list$Term <- rep("ID", length(ID_list$ensembl))
+ID_list <- ID_list[,c(2:3)]
+colnames(ID_list) <- c("gene", "term")
+
+# Testing with phyper.
+q15 <- length(intersect(BPA_DEU_sig, ID_list$gene)) -1
+m15 <- nrow(ID_list)
+n15 <- length(setdiff(BPA_backgroundGeneList, ID_list$gene))
+k15 <- length(BPA_DEU_sig)
+BPA_ID_para <- c("Common Genes:", q15, "Gene List:", m15, "Universe w/o Gene List:", n15, "DEUs:", k15)
+BPA_ID_para
+BPA_ID_p <- phyper(q15, m15, n15, k15, lower.tail = FALSE)
+BPA_ID_p
+```
+
+## Correction for multiple comparissons
+
+```{r}
+# BPA - FDR Method.
+p.vals <- c(BPA_SFARI_p, BPA_SFARI_sel_p, BPA_DD_p, BPA_EPI_p, BPA_ID_p)
+p.adj <- p.adjust(p.vals, method = "fdr", n = length(p.vals))
+p.adj.df <- as.data.frame(p.adj)
+write.csv(p.adj.df,"BPA_padj.csv", row.names = FALSE)
+```

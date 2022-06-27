@@ -1,0 +1,194 @@
+---
+title: "RNAseq Analysis Pipeline: Fractional Factorial Design - Interaction Effects"
+author: "Martin Becker"
+date: "23/06/2022"
+---
+
+## Identify two-way interactions of two environmental factors in fractional factoral design experiment
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, message=FALSE}
+library(DESeq2)
+library(ggplot2)
+library(tidyverse)
+library("biomaRt")
+rm(list=ls())
+```
+
+Select the two factors that should be investigated.
+Available for selection are: Pb, VPA, BPA, ETOH, FH, Zn.
+The left-most factor should be stored in factor1 and the right-most factor in factor 2
+
+```{r global variables}
+#selected environmental factors
+factor1 <- "Pb"
+factor2 <- "Zn"
+```
+
+The merged_gene_counts file contained a couple of samples files from a different experiment that were deleted after input.
+
+```{r input count files}
+#input data
+cts.input <- read.delim("/RNAseq_Analysis_Levels_IV/Dataframes/merged_gene_counts.txt", header=TRUE, stringsAsFactors = FALSE)
+cts.input <- cts.input[ , -which(names(cts.input) %in% c("gene_name", "P16902_144Aligned.sortedByCoord.out.bam","P16902_145Aligned.sortedByCoord.out.bam", "P16902_146Aligned.sortedByCoord.out.bam", "P16902_147Aligned.sortedByCoord.out.bam", "P16902_148Aligned.sortedByCoord.out.bam", "P16902_149Aligned.sortedByCoord.out.bam"))]
+rownames(cts.input)= cts.input[,1]
+rownames(cts.input) <- sapply( strsplit( rownames(cts.input), split="\\..+$"), "[", 1)
+cts.input = cts.input %>% dplyr::select(sort(tidyselect::peek_vars()))
+cts.input <- cts.input[,-1]
+cts <- as.matrix(cts.input)
+```
+
+Input of meta-data that includes the encoding of experimental conditions E1-E8 to the environmental factor treatments.
+
+
+```{r input sample/meta data,results='hold'}
+#import self-made metadata
+meta.data <- read.delim("/RNAseq_Analysis_Levels_IV/Dataframes/columndata.txt", header=TRUE, sep="\t", row.names = 1)
+index_fac1 <- grep(factor1, colnames(meta.data))
+index_fac2 <- grep(factor2, colnames(meta.data))
+
+#Merge env interaction to one group and interact with genotype
+meta.data$envint <- factor(paste0(meta.data[,index_fac1], "_", meta.data[,index_fac2]))
+
+#check if data is correctly imported
+head(colnames(meta.data))
+all(rownames(meta.data) %in% colnames(cts))
+all(rownames(meta.data) == colnames(cts))
+```
+
+We resolve variation that is due to CellLine, biological replication (only for CTRL9II), the interaction term (envint) and the interaction term per CellLine.
+
+
+```{r, message=FALSE}
+#Differential Expression
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = meta.data,
+                              #design= ~ CellLine + Replicate + Pb + VPA + BPA + ETOH + FH + Zn)
+                              design = ~ CellLine + Replicate + envint + CellLine*envint)
+dds$CellLine <- relevel( dds$CellLine, "CTRL9II" )
+#dds$Disease <- relevel( dds$Disease, "control" )
+dds <- DESeq(dds)
+```
+
+Most variation is due to CellLine genetic background. Second most variance is due to biological replication (only available for CTRL9II). Variation due to environmental factor is small.
+
+```{r}
+#First we need to transform the raw count data
+#vst function will perform variance stabilizing transformation
+
+vsdata <- vst(dds, blind=FALSE)
+plotPCA(vsdata, intgroup="CellLine") #using the DESEQ2 plotPCA fxn we can
+plotPCA(vsdata, intgroup=factor1) #using the DESEQ2 plotPCA fxn we can
+plotPCA(vsdata, intgroup=factor2) #using the DESEQ2 plotPCA fxn we can
+```
+
+```{r, message=FALSE}
+rld <- vsdata
+sampleDists <- dist( t( assay(rld) ) )
+sampleDistMatrix <- as.matrix( sampleDists )
+rownames(sampleDistMatrix) <- paste( rld$CellLine, 
+                                     rld$envint, sep="-" )
+colnames(sampleDistMatrix) <- paste( rld$CellLine, 
+                                     rld$envint, sep="-" )
+library( "gplots" )
+library( "RColorBrewer" )
+colours = colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+heatmap.2( sampleDistMatrix, trace="none", col=colours)
+```
+
+```{r}
+library( "genefilter" )
+topVarGenes <- head( order( rowVars( assay(rld) ), decreasing=TRUE ), 35 )
+heatmap.2( assay(rld)[ topVarGenes, ], scale="row",
+           trace="none", dendrogram="column",
+           col = colorRampPalette( rev(brewer.pal(9, "RdBu")) )(255))
+```
+
+There are very few DEGs per CellLine that are differentially regulated due to interacting environmental factors Pb and Zn
+
+```{r set results comparisson}
+resultsNames(dds)
+interaction_term1 <- paste0("CellLineASD17AII.envint", factor1, "_Treatment_", factor2, "_Treatment")
+interaction_term2 <- paste0("CellLineASD12BI.envint", factor1, "_Treatment_", factor2, "_Treatment")
+interaction_term3 <- paste0("CellLineAF22.envint", factor1, "_Treatment_", factor2, "_Treatment")
+res1 <- results(dds, name=c(interaction_term1))
+res2 <- results(dds, name=c(interaction_term2))
+res3 <- results(dds, name=c(interaction_term3))
+sum( res1$padj <0.05, na.rm=TRUE)
+sum( res2$padj <0.05, na.rm=TRUE)
+sum( res3$padj <0.05, na.rm=TRUE)
+```
+
+```{r vulcano}
+#reset par
+par(mfrow=c(1,1))
+# Make a basic volcano plot
+with(res1, plot(log2FoldChange, -log10(pvalue), pch=20, main="Volcano plot", xlim=c(-3,3)))
+
+# Add colored points: blue if padj<0.01, red if log2FC>1 and padj<0.05)
+with(subset(res1, padj<.01 ), points(log2FoldChange, -log10(pvalue), pch=20, col="blue"))
+with(subset(res1, padj<.01 & abs(log2FoldChange)>2), points(log2FoldChange, -log10(pvalue), pch=20, col="red"))
+```
+
+```{r}
+ensembl <- useMart("ENSEMBL_MART_ENSEMBL", host = "www.ensembl.org")
+ensembl <- useEnsembl(biomart = "ensembl", dataset="hsapiens_gene_ensembl")
+genemap <- getBM( attributes = c("ensembl_gene_id", "entrezgene_id", "hgnc_symbol"),
+                  mart = ensembl,
+                  uniqueRows = TRUE)
+idx <-match(rownames(res1), genemap$ensembl_gene_id)
+res1$hgnc_symbol <- genemap$hgnc_symbol[idx]
+res2$hgnc_symbol <- genemap$hgnc_symbol[idx]
+res3$hgnc_symbol <- genemap$hgnc_symbol[idx]
+write.csv( as.data.frame(res1), file= paste0("InteractionCTRL9II_vs_ASD17AII_", factor1, "_", factor2,"_", format(Sys.Date(), "%Y%b%d"), ".csv"))
+write.csv( as.data.frame(res2), file= paste0("InteractionCTRL9II_vs_ASD12BI_", factor1, "_", factor2,"_", format(Sys.Date(), "%Y%b%d"), ".csv"))
+write.csv( as.data.frame(res3), file= paste0("InteractionCTRL9II_vs_AF22_", factor1, "_", factor2,"_", format(Sys.Date(), "%Y%b%d"), ".csv"))
+```
+
+CTRL9II has been sampled in duplicate. The increased amount of replicates may allow for the identification of significant DEGs and prioritization for follow-up.
+
+```{r interaction in CTRL only}
+interaction_CTRL9II_term <- paste0("envint_", factor1, "_Treatment_", factor2, "_Treatment_vs_", factor1, "_Control_", factor2, "_Control")
+res_CTRL <- results(dds, name=c(interaction_CTRL9II_term))
+sum( res_CTRL$padj <0.05, na.rm=TRUE)
+idx <-match(rownames(res_CTRL), genemap$ensembl_gene_id)
+res_CTRL$hgnc_symbol <- genemap$hgnc_symbol[idx]
+write.csv( as.data.frame(res_CTRL), file= paste0("InteractionInCTRL9II_", factor1, "_", factor2,"_", format(Sys.Date(), "%Y%b%d"), ".csv"))
+```
+
+Indeed we can detect 529 significant DEGs
+
+```{r}
+head(res_CTRL[order(res_CTRL$padj),], 10)
+```
+
+```{r, results='hold'}
+#reset par
+par(mfrow=c(1,1))
+# Make a basic volcano plot
+with(res_CTRL, plot(log2FoldChange, -log10(pvalue), pch=20, main="Volcano plot", xlim=c(-3,3)))
+
+# Add colored points: blue if padj<0.01, red if log2FC>1 and padj<0.05)
+with(subset(res_CTRL, padj<.01 ), points(log2FoldChange, -log10(pvalue), pch=20, col="blue"))
+with(subset(res_CTRL, padj<.01 & abs(log2FoldChange)>2), points(log2FoldChange, -log10(pvalue), pch=20, col="red"))
+```
+
+The following script prepares the gene list for analysis in GSEA.
+
+```{r prepareForGSEA}
+#prepare gene list for GSEA
+#GSEA does not work with webgestaltR if Java GSEA.jar is not fixed
+#work around: export GSEA list, run GSEA in separate software
+#res_base <- res_CTRL[which(res_CTRL$baseMean >= 20),] #delete genes with too low expression (artifacts)
+rnk <- data.frame(HGNC = res_CTRL@listData$hgnc, LC = res_CTRL@listData$log2FoldChange) #create dataframe with only HGNC names, adjusted p and fold expression
+rnk <- rnk[order(rnk$LC, decreasing = TRUE),] #rank list by fold expression
+rnk$HGNC[rnk$HGNC==""] <-NA #if some rows have a empty HGNC value, make it "NA"
+rnk <- rnk[complete.cases(rnk$HGNC),] #remove rows with NA in HGNC
+#rnk <- rnk[complete.cases(rnk$PADJ),] #remove rows with NA in adjusted p values
+
+#save .rnk file to input in GSEA software
+write.table(rnk, file = paste0(factor1, "_", factor2, "_inCTRL9II.rnk"), sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+```

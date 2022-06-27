@@ -1,0 +1,524 @@
+---
+title: "MS – Metabolomics Analysis"
+author: "Abishek Arora"
+date: "23/26/2022"
+---
+
+# Mass Spectrometry
+
+Mass spectrometry was performed for cell lines exposed to fluoxetine (3 µM) for 5 days. The cell lines that were a part of this study were CTRL9II, ASD12BI, ASD17AII and AF22. This analysis pipeline utilities metabolite corrected data based on a target list. The outcome measure is reported in concentration terms (µM). The analysis was performed at multiple levels, namely global level, clinical background level and cell line level.
+
+## Global Analysis (Level I)
+
+Comparisons were made based on treatment groups of fluoxetine exposure, namely "Untreated" and "Treated", using a linear model followed by correction for multiple comparisons using the FDR method
+
+```{r}
+# Load package libraries and import the dataset to be analysed.
+rm(list = ls())
+library('readxl')
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+list_metab <- split(FH_metabolome, FH_metabolome$metabolite)
+```
+
+```{r}
+# Define the linear model and loop through the summary results.
+results <- vector(mode = "list", length = 79)
+for (i in 1:length(list_metab)) {
+  model <- lm(concentration ~ exposure, data = list_metab[[i]])
+  results[[i]] <- summary(model)
+}
+
+# Aggregate the p values from the summary results for the linear model.
+pvalues <- vector(mode = "list", length = 79)
+for (i in 1:length(results)) {
+  df <- as.data.frame(results[[i]][[4]])
+  pvalues[[i]] <- df[2,4]
+}
+
+names(pvalues) <- names(list_metab)
+summary_res <- unlist(pvalues)
+summary_res <- as.data.frame(summary_res, add.rownames = True)
+
+write.csv(summary_res,"Global_Metab_Stats.csv", row.names = TRUE)
+
+# Perform correction for multiple comparisons using the FDR method.
+p.vals <- summary_res$summary_res
+p.adj <- p.adjust(p.vals, method = "fdr", n = length(p.vals))
+p.adj.df <- as.data.frame(p.adj)
+write.csv(p.adj.df,"Global_Metab_Stats_padj.csv", row.names = FALSE)
+# Combine the both csv files for final overview.
+```
+
+## Non-ASD Group
+
+Comparisons were made based on treatment groups of fluoxetine exposure, namely "Untreated" and "Treated", in the non-ASD clinical background group (CTRL9II and AF22) using a linear model followed by correction for multiple comparisons using the FDR method.
+
+```{r}
+# Load package libraries and import the dataset to be analysed.
+rm(list = ls())
+library('readxl')
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome[FH_metabolome$risk_group == 'Non-ASD',]
+list_metab <- split(FH_metabolome, FH_metabolome$metabolite)
+```
+
+```{r}
+# Define the linear model and loop through the summary results.
+results <- vector(mode = "list", length = 79)
+for (i in 1:length(list_metab)) {
+  model <- lm(concentration ~ exposure, data = list_metab[[i]])
+  results[[i]] <- summary(model)
+}
+
+# Aggregate the p values from the summary results for the linear model.
+pvalues <- vector(mode = "list", length = 79)
+for (i in 1:length(results)) {
+  df <- as.data.frame(results[[i]][[4]])
+  pvalues[[i]] <- df[2,4]
+}
+
+names(pvalues) <- names(list_metab)
+summary_res <- unlist(pvalues)
+summary_res <- as.data.frame(summary_res, add.rownames = True)
+
+write.csv(summary_res,"Non_ASD_Metab_Stats.csv", row.names = TRUE)
+
+# Perform correction for multiple comparisons using the FDR method.
+p.vals <- summary_res$summary_res
+p.adj <- p.adjust(p.vals, method = "fdr", n = length(p.vals))
+p.adj.df <- as.data.frame(p.adj)
+write.csv(p.adj.df,"Non_ASD_Metab_Stats_padj.csv", row.names = FALSE)
+# Combine both the csv files for final overview.
+```
+
+## ASD Group
+
+Comparisons were made based on treatment groups of fluoxetine exposure, namely "Untreated" and "Treated", in the ASD clinical background group (ASD12BI and ASD17AII) using a linear model followed by correction for multiple comparisons using the FDR method.
+
+```{r}
+# Load package libraries and import the dataset to be analysed.
+rm(list = ls())
+library('readxl')
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome[FH_metabolome$risk_group == 'ASD',]
+list_metab <- split(FH_metabolome, FH_metabolome$metabolite)
+```
+
+```{r}
+# Define the linear model and loop through the summary results.
+results <- vector(mode = "list", length = 79)
+for (i in 1:length(list_metab)) {
+  model <- lm(concentration ~ exposure, data = list_metab[[i]])
+  results[[i]] <- summary(model)
+}
+
+# Aggregate the p values from the summary results for the linear model.
+pvalues <- vector(mode = "list", length = 79)
+for (i in 1:length(results)) {
+  df <- as.data.frame(results[[i]][[4]])
+  pvalues[[i]] <- df[2,4]
+}
+
+names(pvalues) <- names(list_metab)
+summary_res <- unlist(pvalues)
+summary_res <- as.data.frame(summary_res, add.rownames = True)
+
+write.csv(summary_res,"ASD_Metab_Stats.csv", row.names = TRUE)
+
+# Perform correction for multiple comparisons using the FDR method.
+p.vals <- summary_res$summary_res
+p.adj <- p.adjust(p.vals, method = "fdr", n = length(p.vals))
+p.adj.df <- as.data.frame(p.adj)
+write.csv(p.adj.df,"ASD_Metab_Stats_padj.csv", row.names = FALSE)
+# Combine both the csv files for final overview.
+```
+
+## CTRL9II
+
+Comparisons were made based on treatment groups of fluoxetine exposure, namely "Untreated" and "Treated", in the CTRL9II cell line using a linear model followed by correction for multiple comparisons using the FDR method.
+
+```{r}
+# Load package libraries and import the dataset to be analysed.
+rm(list = ls())
+library('readxl')
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx.xlsx")
+FH_metabolome <- FH_metabolome[FH_metabolome$cell_line == 'CTRL9II',]
+list_metab <- split(FH_metabolome, FH_metabolome$metabolite)
+```
+
+```{r}
+# Define the linear model and loop through the summary results.
+results <- vector(mode = "list", length = 79)
+for (i in 1:length(list_metab)) {
+  model <- lm(concentration ~ exposure, data = list_metab[[i]])
+  results[[i]] <- summary(model)
+}
+
+# Aggregate the p values from the summary results for the linear model.
+pvalues <- vector(mode = "list", length = 79)
+for (i in 1:length(results)) {
+  df <- as.data.frame(results[[i]][[4]])
+  pvalues[[i]] <- df[2,4]
+}
+
+names(pvalues) <- names(list_metab)
+summary_res <- unlist(pvalues)
+summary_res <- as.data.frame(summary_res, add.rownames = True)
+
+write.csv(summary_res,"CTRL9II_Metab_Stats.csv", row.names = TRUE)
+
+# Perform correction for multiple comparisons using the FDR method.
+p.vals <- summary_res$summary_res
+p.adj <- p.adjust(p.vals, method = "fdr", n = length(p.vals))
+p.adj.df <- as.data.frame(p.adj)
+write.csv(p.adj.df,"CTRL9II_Metab_Stats_padj.csv", row.names = FALSE)
+# Combine both the csv files for final overview.
+```
+
+## AF22
+
+Comparisons were made based on treatment groups of fluoxetine exposure, namely "Untreated" and "Treated", in the AF22 cell line using a linear model followed by correction for multiple comparisons using the FDR method.
+
+```{r}
+# Load package libraries and import the dataset to be analysed.
+rm(list = ls())
+library('readxl')
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome[FH_metabolome$cell_line == 'AF22',]
+list_metab <- split(FH_metabolome, FH_metabolome$metabolite)
+```
+
+```{r}
+# Define the linear model and loop through the summary results.
+results <- vector(mode = "list", length = 79)
+for (i in 1:length(list_metab)) {
+  model <- lm(concentration ~ exposure, data = list_metab[[i]])
+  results[[i]] <- summary(model)
+}
+
+# Aggregate the p values from the summary results for the linear model.
+pvalues <- vector(mode = "list", length = 79)
+for (i in 1:length(results)) {
+  df <- as.data.frame(results[[i]][[4]])
+  pvalues[[i]] <- df[2,4]
+}
+
+names(pvalues) <- names(list_metab)
+summary_res <- unlist(pvalues)
+summary_res <- as.data.frame(summary_res, add.rownames = True)
+
+write.csv(summary_res,"AF22_Metab_Stats.csv", row.names = TRUE)
+
+# Perform correction for multiple comparisons using the FDR method.
+p.vals <- summary_res$summary_res
+p.adj <- p.adjust(p.vals, method = "fdr", n = length(p.vals))
+p.adj.df <- as.data.frame(p.adj)
+write.csv(p.adj.df,"AF22_Metab_Stats_padj.csv", row.names = FALSE)
+# Combine both the csv files for final overview.
+```
+
+## ASD12BI
+
+Comparisons were made based on treatment groups of fluoxetine exposure, namely "Untreated" and "Treated", in the ASD12BI cell line using a linear model followed by correction for multiple comparisons using the FDR method.
+
+```{r}
+# Load package libraries and import the dataset to be analysed.
+rm(list = ls())
+library('readxl')
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome[FH_metabolome$cell_line == 'ASD12BI',]
+list_metab <- split(FH_metabolome, FH_metabolome$metabolite)
+```
+
+```{r}
+# Define the linear model and loop through the summary results.
+results <- vector(mode = "list", length = 79)
+for (i in 1:length(list_metab)) {
+  model <- lm(concentration ~ exposure, data = list_metab[[i]])
+  results[[i]] <- summary(model)
+}
+
+# Aggregate the p values from the summary results for the linear model.
+pvalues <- vector(mode = "list", length = 79)
+for (i in 1:length(results)) {
+  df <- as.data.frame(results[[i]][[4]])
+  pvalues[[i]] <- df[2,4]
+}
+
+names(pvalues) <- names(list_metab)
+summary_res <- unlist(pvalues)
+summary_res <- as.data.frame(summary_res, add.rownames = True)
+
+write.csv(summary_res,"ASD12BI_Metab_Stats.csv", row.names = TRUE)
+
+# Perform correction for multiple comparisons using the FDR method.
+p.vals <- summary_res$summary_res
+p.adj <- p.adjust(p.vals, method = "fdr", n = length(p.vals))
+p.adj.df <- as.data.frame(p.adj)
+write.csv(p.adj.df,"ASD12BI_Metab_Stats_padj.csv", row.names = FALSE)
+# Combine both the csv files for final overview.
+```
+
+## ASD17AII
+
+Comparisons were made based on treatment groups of fluoxetine exposure, namely "Untreated" and "Treated", in the ASD17AII cell line using a linear model followed by correction for multiple comparisons using the FDR method.
+
+```{r}
+# Load package libraries and import the dataset to be analysed.
+rm(list = ls())
+library('readxl')
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome[FH_metabolome$cell_line == 'ASD17AII',]
+list_metab <- split(FH_metabolome, FH_metabolome$metabolite)
+```
+
+```{r}
+# Define the linear model and loop through the summary results.
+results <- vector(mode = "list", length = 79)
+for (i in 1:length(list_metab)) {
+  model <- lm(concentration ~ exposure, data = list_metab[[i]])
+  results[[i]] <- summary(model)
+}
+
+# Aggregate the p values from the summary results for the linear model.
+pvalues <- vector(mode = "list", length = 79)
+for (i in 1:length(results)) {
+  df <- as.data.frame(results[[i]][[4]])
+  pvalues[[i]] <- df[2,4]
+}
+
+names(pvalues) <- names(list_metab)
+summary_res <- unlist(pvalues)
+summary_res <- as.data.frame(summary_res, add.rownames = True)
+
+write.csv(summary_res,"ASD17AII_Metab_Stats.csv", row.names = TRUE)
+
+# Perform correction for multiple comparisons using the FDR method.
+p.vals <- summary_res$summary_res
+p.adj <- p.adjust(p.vals, method = "fdr", n = length(p.vals))
+p.adj.df <- as.data.frame(p.adj)
+write.csv(p.adj.df,"ASD17AII_Metab_Stats_padj.csv", row.names = FALSE)
+# Combine both the csv files for final overview.
+```
+
+### Plots for visualisation
+#### Metabolites significant at the global level, stratified as per clinical background group
+
+```{r}
+# Global Analysis
+rm(list = ls())
+library('readxl')
+library('ggplot2')
+library('tidyverse')
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "FA 18:1" | metabolite == "FA 20:2" | metabolite == "FA 20:3"| 
+                                          metabolite == "PC e 32:0" | metabolite == "PC e 32:1" | metabolite == "PE a 36:4")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = metabolite, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure, shape = risk_group)) + theme_bw() + 
+  xlab("Global Level - Significant Metabolites") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16)) +
+  scale_x_discrete(guide = guide_axis(angle = 45))
+```
+
+#### Shared significant metabolites at the clinical diagnosis level, stratified as per clinical background group
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "FA 20:2")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + 
+  facet_wrap(~ metabolite)
+```
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "FA 20:3")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + 
+  facet_wrap(~ metabolite)
+```
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "PC (34:3)")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + facet_wrap(~ metabolite)
+```
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "PC (36:3)")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + facet_wrap(~ metabolite)
+```
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "PE a 34:2")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + facet_wrap(~ metabolite)
+```
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "PE a 36:2")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + facet_wrap(~ metabolite)
+```
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "PE a 36:3")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + facet_wrap(~ metabolite)
+```
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "PE a 38:4")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + facet_wrap(~ metabolite)
+```
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "PE a 38:5")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + facet_wrap(~ metabolite)
+```
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "PE e 38:4")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + facet_wrap(~ metabolite)
+```
+
+```{r}
+# Clinical Diagnosis Shared
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "PE e 40:5")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = risk_group, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Clinical Background") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16), 
+  strip.background = element_rect(fill="white")) + facet_wrap(~ metabolite)
+```
+
+#### Significant unique metabolites in the Non-ASD clinical background group
+
+```{r}
+# Clinical Diagnosis - Non-ASD Unique
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "Aspartic acid" | metabolite == "PC (34:2)" | 
+                                          metabolite == "PC e 32:0" | metabolite == "PC e 32:1" | 
+                                          metabolite == "PE a 34:1" | metabolite == "PE a 36:1" | 
+                                          metabolite == "PE a 36:4" | metabolite == "PE a 38:2" | 
+                                          metabolite == "PE a 40:4" | metabolite == "PE e 34:2" | 
+                                          metabolite == "PE e 38:5")
+FH_metabolome <- FH_metabolome %>% filter(risk_group == "Non-ASD")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = metabolite, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Non-Risk Clinical Dignosis - Significant Unique Metabolites") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16)) +
+  scale_x_discrete(guide = guide_axis(angle = 45)) + ylim(0, 5)
+```
+
+#### Significant unique metabolites in the ASD clinical background group
+
+```{r}
+# Clinical Diagnosis - ASD Unique
+rm(list = ls())
+FH_metabolome <- read_excel("/Metabolomics_Analysis/mass_spec_target.xlsx")
+FH_metabolome <- FH_metabolome %>% filter(metabolite == "FA 16:1" | metabolite == "FA 18:1" | metabolite == "FA 18:2" | 
+                                          metabolite == "FA 20:1" | metabolite == "PE a 38:3" | metabolite == "PE e 40:4" |
+                                          metabolite == "SM 16:0")
+FH_metabolome <- FH_metabolome %>% filter(risk_group == "ASD")
+FH_metabolome$exposure <- factor(FH_metabolome$exposure, levels = c("Untreated", "Treated"))
+ggplot(FH_metabolome, aes(x = metabolite, y = concentration)) + 
+  geom_boxplot(aes(color = exposure), position = position_dodge(0.85), outlier.shape = NA) + 
+  geom_point(size = 2.5, position = position_dodge(0.85), aes(color=exposure)) + theme_bw() + 
+  xlab("Risk Clinical Dignoses - Significant Unique Metabolites") + ylab ("Concentration (µM)") + 
+  theme(legend.title=element_blank(), legend.position="top", text = element_text(size=16)) +
+  scale_x_discrete(guide = guide_axis(angle = 45)) + ylim(0, 4)
+```
+
+Following generation of plots, metabolite label names were edited using a vector graphics editor software (such as Affinity Designer) to match international naming conventions as stated in the Table S8. For clarification, no parentheses were used in the PC names and the "a" was removed from PC and PE metabolites.

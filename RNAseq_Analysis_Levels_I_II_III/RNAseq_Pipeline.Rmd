@@ -1,0 +1,329 @@
+---
+title: 'RNAseq Analysis Pipeline: Fractional Factorial Experiment Design - Independent Effects'
+author: "Abishek Arora"
+date: "23/06/2022"
+---
+
+# Differential gene expression analysis using the package DESeq2 in R
+
+```{r}
+# Load the required libraries for DE analysis of RNAseq data using DESeq2.
+library(DESeq2)
+library(RColorBrewer)
+library(pheatmap)
+library(tidyverse)
+```
+
+Import of data sets for use with DESeq2:
+
+```{r}
+# Import dataframe containing metadata for the analysis using DESeq2.
+Metadata_Ordered <- read.csv("/RNAseq_Analysis_Levels_I_II_III/Dataframes/Metadata_Ordered.csv", row.names=1)
+# Import gene count data received from NGI Stockholm.
+Gene_Counts <- read.delim("/RNAseq_Analysis_Levels_I_II_III/Dataframes/Gene_Counts.txt", row.names=1)
+# Get an overview of the imported dataframe's organisation.
+rownames(Metadata_Ordered)
+colnames(Gene_Counts)
+```
+
+To perform any analysis with DESeq2, we need to create a DESeq2 object by providing the raw counts, metadata, and design formula. To do this, we need to read in the raw counts data and associated metadata we created previously. We make sure that the sample names are in the same order in both data sets and then create a DESeq2 object to use for differential gene expression analysis.
+
+```{r}
+all(rownames(Metadata_Ordered) == colnames(Gene_Counts))
+# Organise data in the correct order for use with DESeq2.
+idx <- match(rownames(Metadata_Ordered), colnames(Gene_Counts))
+Reordered_Gene_Counts <- Gene_Counts [,idx]
+all(rownames(Metadata_Ordered) == colnames(Reordered_Gene_Counts))
+```
+
+Set independent factor for analysis and cell line choice, by specifying the required variables:
+
+```{r}
+# Available factors: Pb, VPA, BPA, ETOH, FH, Zn.
+factor <- "FH"
+
+# Available cell lines: CTRL9II, AF22, ASD12BI, ASD17AII. Mention "Global" for overall analysis and do not filter for cell line.
+cells <- "Global"
+
+# Available clinical background groups: Non_ASD and ASD. Mention "Cells" if no specific group is selected and do not filter for clinical background.
+risk_group <- "Cells"
+```
+
+Once the correct order has been established in the metadata and gene count dataframes, the DESeq2 object can be defined:
+
+```{r}
+# Define the DESeq2 object.
+dds <- DESeqDataSetFromMatrix(countData = Reordered_Gene_Counts, colData = Metadata_Ordered, design = formula(paste("~", factor)))
+```
+
+Run the following code to analyse at cell line level. The required columns will be subsetted from the main dataframe containing metadata for the analysis.
+
+```{r eval = FALSE}
+# Relevant columns can be subsetted from the full dataset for each cell line.
+dds <- dds[ , dds$cell_line == cells]
+
+# Manually specify factor that is being analysed, in the line of code that follows.
+dds$Pb <- relevel(dds$Pb, "Control") # Set Control as the first level in the treatment factor, so that the default log2 fold changes are calculated as treatment over control and not the other way around.
+
+# Quick check of dataframe.
+as.data.frame(colData(dds))
+```
+
+To subset as per clinical background group, run the code that follows. The required columns will be subsetted from the main dataframe containing metadata for the analysis.
+
+```{r eval = FALSE}
+# Relevant columns can be subsetted from the full dataset for each cell line. Remove cell line from model when checking independently.
+dds <- dds[ , dds$cell_group == risk_group]
+
+# Manually specify factor that is being analysed, in the line of code that follows.
+dds$Pb <- relevel(dds$Pb, "Control") # Set Control as the first level in the treatment factor, so that the default log2 fold changes are calculated as treatment over control and not the other way around.
+
+# Quick check of dataframe.
+as.data.frame(colData(dds))
+```
+
+**Unsupervised Clustering Analysis**
+
+We have created the DESeq2 object and now wish to perform quality control on our samples. Therefore, we need to generate the normalised counts (normalized for library size, which is the total number of gene counts per sample, while accounting for library composition). To obtain the normalised counts, use the DESeq2 object and generate the normalised counts matrix.
+
+```{r}
+# Determine the size factors to use for normalisation.
+dds <- estimateSizeFactors(dds)
+sizeFactors(dds)
+
+# Extract the normalized counts.
+Normalised_Gene_Counts <- counts(dds, normalized = TRUE)
+View(Normalised_Gene_Counts)
+
+# When performing quality assessment of our count data, we need to transform the normalized counts for better visualization of the variance for unsupervised clustering analyses.
+# Transform the normalized counts.
+vsd <- vst(dds, blind = TRUE)
+
+# Extract the matrix of transformed counts.
+vsd_mat <- assay(vsd)
+
+# Compute the correlation values between samples.
+vsd_cor <- cor(vsd_mat)
+
+# Plot the heatmap.
+pheatmap(vsd_cor, annotation = select(Metadata_Ordered, factor))
+```
+
+To continue with the quality assessment of our samples, we will perform PCA to look how our samples cluster and whether our condition of interest corresponds with the principal components explaining the most variation in the data.
+
+```{r}
+# Plot the PCA of PC1 and PC2.
+plotPCA(vsd, intgroup= c(factor, "cell_line"))
+```
+
+**DESeq2 Analysis**
+
+```{r}
+# Run the DESeq2 analysis.
+dds <- DESeq(dds)
+```
+
+After fitting the model, the fit of the data to the negative binomial model should be explored by plotting the dispersion estimates using the plotDispEsts() function. The dispersion estimates are used to model the raw counts; if the dispersions don't follow the assumptions made by DESeq2, then the variation in the data could be poorly estimated and the DE results could be less accurate. The assumptions DESeq2 makes are that the dispersions should generally decrease with increasing mean and that they should more or less follow the fitted line.
+
+```{r}
+# Analysis of dispersion.
+mean_counts <- apply(Gene_Counts[, 1:43], 1, mean)
+variance_counts <- apply(Gene_Counts[, 1:43], 1, var)
+df <- data.frame(mean_counts, variance_counts)
+ggplot(df) + geom_point(aes(x= mean_counts, y= variance_counts)) + scale_y_log10() + scale_x_log10() + xlab("Means Counts per Gene") + ylab("Variance per Gene") + theme_minimal()
+```
+
+```{r}
+# Plot dispersions as computed by DESeq2.
+plotDispEsts(dds)
+```
+
+Extraction of results from the DESeq2 model
+
+```{r}
+# Extract the results of the differential gene expression analysis.
+res <- results(dds, contrast = c(factor, "Treatment", "Control")) # Add "alpha = 0.1" if needed (This is the default value , if not included by the user).
+plotMA(res, ylim = c(-8, 8))
+summary(res)
+```
+
+Subsetting significant results from the DESeq2 analysis.
+
+```{r}
+# Save results as a data frame.
+res_all <- data.frame(res) %>% rownames_to_column(var = "ensgene")
+
+# Merging results with gene annotation data.
+gene_annotations <- read.delim("/RNAseq_Analysis_Levels_I_II_III/Dataframes/gene_annotations.txt") # Provided by NGI Stockholm
+
+# Adding descriptions with gene annotation data.
+res_all <- left_join(x = res_all, y = gene_annotations[, c("ensgene", "symbol")], by = "ensgene") # For sequencing at NGI Stockholm
+View(res_all)
+write.csv(res_all, paste0(factor, "_", cells, "_", risk_group, "_Genes.csv"))
+```
+
+```{r}
+# Subset the results to only return the significant genes with p-adjusted values less than 0.05.
+res_sig <- subset(res_all, padj < 0.05) # 10% false positives acceptable: all genes with an adjusted p value below 10% = 0.1 as significant.
+
+# Arranging results in decreasing order of significance.
+res_sig <- res_sig %>% arrange(padj)
+View(res_sig)
+write.csv(res_sig, paste0(factor, "_", cells, "_", risk_group, "_Sig_Genes.csv"))
+```
+
+## Visualisation of differential gene expression data
+
+**Expression Heatmap**
+
+```{r}
+#Subset normalised counts to significant genes.
+sig_norm_counts <- Normalised_Gene_Counts[res_sig$ensgene, ]
+rownames(sig_norm_counts) <- gsub("\\..*","",rownames(sig_norm_counts))
+write.csv(sig_norm_counts, "sig_norm_counts.csv")
+GRCh38_IDs <- read.delim("/RNAseq_Analysis_Levels_I_II_III/DEG/GRCh38_IDs.txt")
+# Manually add "ensembl" to the column name for the first column.
+```
+
+```{r}
+sig_norm_counts_plot <- read.csv("sig_norm_counts.csv")
+sig_norm_counts_plot <- left_join(x = sig_norm_counts_plot, y = GRCh38_IDs[, c("ensembl", "symbol")], by = "ensembl")
+write.csv(sig_norm_counts_plot, "sig_norm_counts_plot.csv")
+# Manually remove the column with column name "ensembl" and remove only the column name "symbol".
+```
+
+```{r}
+sig_norm <- read.csv("Add file path here/sig_norm_counts_plot.csv", row.names=1)
+# Colour palette from RColorBrewer
+heat_colours <- brewer.pal(6, "YlOrRd")
+
+# Run pheatmap
+pheatmap(sig_norm, cluster_rows = TRUE, cluster_cols = TRUE, show_rownames = TRUE, show_colnames = FALSE, annotation = select (Metadata_Ordered, factor), scale = "row")
+```
+
+**Volcano Plot**
+
+```{r}
+# Logical vector for padj values less than 0.05.
+all_res <- res_all %>% mutate(threshold = padj < 0.05)
+
+# Plot the volcano plot.
+ggplot(all_res) + geom_point(aes (x = log2FoldChange, y = -log10(padj), color = threshold)) + xlab("log2 Fold Change") + ylab(" -log10 Adjusted p-value") + theme_minimal() + theme(legend.position = "none", plot.title = element_text(size = rel(1.5), hjust = 0.5), axis.title = element_text(size = rel(1.25)))
+```
+
+**Expression Plot**
+
+```{r}
+# Plot the normalised counts of the top 20 differentially expressed genes.
+sig_norm_counts <- Normalised_Gene_Counts[res_sig$ensgene, ]
+top_20 <- data.frame(sig_norm_counts) [1:20, ] %>% rownames_to_column(var = "ensgene")
+top_20 <- gather(top_20, key = "samplename", value = "normalized_counts", 2:8)
+top_20 <- inner_join(top_20, rownames_to_column(Metadata_Ordered, var = "samplename"), by = "samplename")
+top_20 <- left_join(x = top_20, y = gene_annotations[, c("ensgene", "symbol")], by = "ensgene")
+ggplot(top_20) + geom_point(aes(x = symbol, y = normalized_counts, color = Pb)) + scale_y_log10() + xlab("Genes") + ylab("Normalised Counts") + ggtitle ("Top 20 Significant DE Genes") + theme_bw() + theme(axis.text.x = element_text(angle= 45, hjust= 1)) + theme(plot.title = element_text(hjust = 0.5))
+```
+
+**GSEA: File Prerequisites**
+
+To perform gene set enrichment analysis using the tool/ pipeline developed by the Broad Institute (http://www.gsea-msigdb.org/gsea/index.jsp), generate the following input files.
+
+```{r}
+# Import complete gene list following differential gene expression analysis using DESeq2.
+res_GSEA <-read.csv(paste0("~/Add File Path Here", factor, "_", cells, "_", risk_group, "_Genes.csv"), sep = ",", header=TRUE, stringsAsFactors = FALSE)
+head(res_GSEA)
+
+# Delete genes with too low expression (artifacts).
+res_base <- res_GSEA[which(res_GSEA$baseMean >= 20),]
+head(res_base)
+
+# Create dataframe with only HGNC names and fold expression.
+rnk <- data.frame(HGNC = res_base$symbol, LC = res_base$log2FoldChange)
+head(rnk)
+
+# Rank list by fold expression.
+rnk <- rnk[order(rnk$LC, decreasing = TRUE),]
+
+# If some rows have an empty HGNC value, make it "NA".
+rnk$HGNC[rnk$HGNC==""] <- NA
+
+# If some rows have an empty LC value, make it "NA".
+rnk$HGNC[rnk$LC==""] <- NA
+
+# Remove rows with NA in HGNC.
+rnk <- rnk[complete.cases(rnk$HGNC),]
+
+# Remove rows with NA in log2FoldChange.
+rnk <- rnk[complete.cases(rnk$LC),] 
+head(rnk)
+
+# Downregulated significant genes.
+rnk_down <- rnk[rnk$LC < 0, ]
+
+# Upregulated significant genes.
+rnk_up <- rnk[rnk$LC > 0, ]
+
+# save .rnk files for input in GSEA software.
+write.table(rnk, file = paste0(factor, "_", cells , "_", risk_group, "_DEG.rnk"), sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+write.table(rnk_down, file = paste0(factor, "_", cells , "_", risk_group, "_DEG_Down.rnk"), sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+write.table(rnk_up, file = paste0(factor, "_", cells , "_", risk_group, "_DEG_Up.rnk"), sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+Plots from GSEA:
+
+```{r}
+library('scales')
+library('ggplot2')
+library('stringr')
+
+# Import downregulation results file from GSEA.
+GO_neg <- read.csv(file = "Add File Path for GSEA downregulation output")
+
+# Umport upregulation results file from GSEA.
+GO_pos <- read.csv(file = "Add File Path for GSEA downregulation output")
+
+# Clean up downregulation results file for plotting.
+GO_neg$NAME <- str_replace_all(GO_neg$NAME, "[^[:alnum:]]", " ")
+GO_neg$NAME <- str_replace_all(GO_neg$NAME, "GOBP", "")
+GO_neg$NAME <- str_wrap(GO_neg$NAME, width = 32)
+GO_neg <- GO_neg[order(abs(GO_neg$NES), decreasing = FALSE),]
+GO_neg <- tail(GO_neg, n = 10)
+GO_neg$NAME <- factor(GO_neg$NAME, levels = GO_neg$NAME)
+
+# Clean up upregulation results fil for plotting.
+GO_pos$NAME <- str_replace_all(GO_pos$NAME, "[^[:alnum:]]", " ")
+GO_pos$NAME <- str_replace_all(GO_pos$NAME, "GOBP", "")
+GO_pos$NAME <- str_wrap(GO_pos$NAME, width = 32)
+GO_pos <- GO_pos[order(abs(GO_pos$NES), decreasing = FALSE),]
+GO_pos <- tail(GO_pos, n = 10)
+GO_pos$NAME <- factor(GO_pos$NAME, levels = GO_pos$NAME)
+```
+
+```{r}
+# GO Dot Plot - Downregulated.
+ggplot(GO_neg) +
+  geom_point(aes(x = NES, y = NAME, size=SIZE, color = FDR.q.val< 0.05 ))+
+  xlab("Normalized Enrichment Score")+
+  ylab("")+
+  ggtitle("Downregulated")+
+  scale_colour_manual("FDR < 0.05", values=setNames(c('blue','grey'),c(T, F))) + theme_bw() + scale_radius(limits = c(0,350))
+```
+
+```{r}
+# Go Dot Plot - Upregulated.
+ggplot(GO_pos) +
+  geom_point(aes(x = NES, y = NAME, size=SIZE, color = FDR.q.val< 0.05 ))+
+  xlab("Normalized Enrichment Score")+
+  ylab("")+
+  ggtitle("Upregulated")+
+  scale_colour_manual("FDR < 0.05", values=setNames(c('red','grey'),c(T, F))) + theme_bw() + scale_radius(limits = c(0,350))
+```
+
+## Exploration of PCA using pcaExplorer (Shiny App)
+
+```{r}
+library('pcaExplorer')
+annotation <- read.csv("/RNAseq_Analysis_Levels_I_II_III/Dataframes/gene_annotations_PCA.csv", row.names=1)
+
+# If not done already, define dds object as in the markdown above (lines 19 to 57). For instructions on how to use pcaExplorer, please refer to: https://www.bioconductor.org/packages/devel/bioc/vignettes/pcaExplorer/inst/doc/pcaExplorer.html
+pcaExplorer(dds = dds, annotation = annotation)
+```
