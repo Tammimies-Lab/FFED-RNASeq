@@ -1,0 +1,312 @@
+---
+title: "DEXSeq_2"
+author: "Marika Oksanen"
+date: "6/30/2021"
+output: html_document
+---
+
+##DEXSeq
+
+```{r}
+library(DEXSeq)
+library(biomaRt)
+library(VennDiagram)
+library(tidyverse)
+```
+
+Find the countfiles that are calculated using python scripts
+```{r}
+countFiles = list.files("/Users/k6-c02dm8d6ml7h/Desktop/CountFiles/CTRL9/", pattern=".txt$", full.names=TRUE)
+```
+
+```{r}
+flattenedFile = list.files("/Users/k6-c02dm8d6ml7h/Desktop/", pattern="gff$", full.names=TRUE)
+```
+
+```{r}
+sample_info <- read.delim("~/Desktop//K.Tammimies_20_01_sample_info.txt", header=TRUE)
+```
+
+```{r}
+sample_info <- separate(sample_info, "User.ID", into = c("sample_number", "cell_line", "treatment"), sep = "_", remove = FALSE )
+sample_info <- sample_info[1:43,]
+```
+
+
+```{r}
+source("BPA_F.R")
+source("Eth_F.R")
+source("FH_F.R")
+source("Pb_F.R")
+source("VPA_F.R")
+source("Zn_F.R")
+```
+
+```{r}
+sample_info$Pb <- Pb_F(sample_info)
+sample_info$VPA <- VPA_F(sample_info)
+sample_info$BPA <- BPA_F(sample_info)
+sample_info$Eth <- Eth_F(sample_info)
+sample_info$FH <- FH_F(sample_info)
+sample_info$Zn <- Zn_F(sample_info)
+```
+
+#### Pb Treatment
+
+```{r}
+sample_info <- sample_info[sample_info[, "cell_line"] == "CTRL9II",]
+names(sample_info)[names(sample_info) == "Pb"] <- "condition"
+```
+
+
+```{r}
+dxd_CTRL9_Pb = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_CTRL9_Pb <- estimateSizeFactors(dxd_CTRL9_Pb)
+dxd_CTRL9_Pb <- estimateDispersions(dxd_CTRL9_Pb)
+plotDispEsts(dxd_CTRL9_Pb)
+```
+
+```{r}
+dxr_CTRL9_Pb = DEXSeq(dxd_CTRL9_Pb)
+dxr_CTRL9_Pbdf <- as.data.frame(dxr_CTRL9_Pb)
+```
+
+MA plot:
+```{r}
+plotMA(dxr_CTRL9_Pb)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_CTRL9_Pb.sig <- as.data.frame(dxr_CTRL9_Pb[dxr_CTRL9_Pb$padj < 0.05 & !is.na(dxr_CTRL9_Pb$padj),]) #padj <0.05
+dxr_CTRL9_Pb.sig <- dxr_CTRL9_Pb.sig[dxr_CTRL9_Pb.sig$log2fold_treated_control < -0.58 | dxr_CTRL9_Pb.sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_CTRL9_Pb.sig <- dxr_CTRL9_Pb.sig[dxr_CTRL9_Pb.sig$exonBaseMean >= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_CTRL9_Pb.sig <- dxr_CTRL9_Pb.sig[order(dxr_CTRL9_Pb.sig$padj),]
+```
+
+```{r}
+plotDEXSeq( dxr_CTRL9_Pb, "ENSG00000168003.16", legend=TRUE, cex.axis=1.2, cex=1.3, lwd=2)
+```
+
+#### BPA Treatment
+
+```{r}
+sample_info <- sample_info[sample_info[, "cell_line"] == "CTRL9II",]
+names(sample_info)[names(sample_info) == "BPA"] <- "condition"
+```
+
+
+```{r}
+dxd_CTRL9_BPA = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_CTRL9_BPA <- estimateSizeFactors(dxd_CTRL9_BPA)
+dxd_CTRL9_BPA <- estimateDispersions(dxd_CTRL9_BPA)
+plotDispEsts(dxd_CTRL9_BPA)
+```
+
+```{r}
+dxr_CTRL9_BPA = DEXSeq(dxd_CTRL9_BPA)
+dxr_CTRL9_BPAdf <- as.data.frame(dxr_CTRL9_BPA)
+```
+
+MA plot:
+```{r}
+plotMA(dxr_CTRL9_BPA)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_CTRL9_BPA.sig <- as.data.frame(dxr_CTRL9_BPA[dxr_CTRL9_BPA$padj < 0.05 & !is.na(dxr_CTRL9_BPA$padj),]) #padj <0.05
+dxr_CTRL9_BPA.sig <- dxr_CTRL9_BPA.sig[dxr_CTRL9_BPA.sig$log2fold_treated_control < -0.58 | dxr_CTRL9_BPA.sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_CTRL9_BPA.sig <- dxr_CTRL9_BPA.sig[dxr_CTRL9_BPA.sig$exonBaseMean >= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_CTRL9_Pb.sig <- dxr_CTRL9_Pb.sig[order(dxr_CTRL9_Pb.sig$padj),]
+```
+
+```{r}
+plotDEXSeq( dxr_CTRL9_BPA, "ENSG00000119640.8", legend=TRUE, displayTranscripts = TRUE, splicing = TRUE, expression = FALSE, cex.axis=1.2, cex=1.3, lwd=2)
+```
+
+#### VPA Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "VPA"] <- "condition"
+```
+
+```{r}
+dxd_CTRL9_VPA = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_CTRL9_VPA <- estimateSizeFactors(dxd_CTRL9_VPA)
+dxd_CTRL9_VPA <- estimateDispersions(dxd_CTRL9_VPA)
+plotDispEsts(dxd_CTRL9_VPA)
+```
+
+```{r}
+dxr_CTRL9_VPA = DEXSeq(dxd_CTRL9_VPA)
+dxr_CTRL9_VPAdf <- as.data.frame(dxr_CTRL9_VPA)
+```
+
+MA plot:
+```{r}
+plotMA(dxr_CTRL9_VPA)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_CTRL9_VPA.sig <- as.data.frame(dxr_CTRL9_VPA[dxr_CTRL9_VPA$padj < 0.05 & !is.na(dxr_CTRL9_VPA$padj),]) #padj <0.05
+dxr_CTRL9_VPA.sig <- dxr_CTRL9_VPA.sig[dxr_CTRL9_VPA.sig$log2fold_treated_control < -0.58 | dxr_CTRL9_VPA.sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_CTRL9_VPA.sig <- dxr_CTRL9_VPA.sig[dxr_CTRL9_VPA.sig$exonBaseMean >= 10,]
+```
+
+NOTHING SIGNIFICANT
+
+#### Ethanol Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "Eth"] <- "condition"
+```
+
+```{r}
+dxd_CTRL9_Eth = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_CTRL9_Eth <- estimateSizeFactors(dxd_CTRL9_Eth)
+dxd_CTRL9_Eth <- estimateDispersions(dxd_CTRL9_Eth)
+plotDispEsts(dxd_CTRL9_Eth)
+```
+
+```{r}
+dxr_CTRL9_Eth = DEXSeq(dxd_CTRL9_Eth)
+dxr_CTRL9_Ethdf <- as.data.frame(dxr_CTRL9_Eth)
+```
+
+MA plot:
+```{r}
+plotMA(dxr_CTRL9_Eth)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_CTRL9_Eth.sig <- as.data.frame(dxr_CTRL9_Eth[dxr_CTRL9_Eth$padj < 0.05 & !is.na(dxr_CTRL9_Eth$padj),]) #padj <0.05
+dxr_CTRL9_Eth.sig <- dxr_CTRL9_Eth.sig[dxr_CTRL9_Eth.sig$log2fold_treated_control < -0.58 | dxr_CTRL9_Eth.sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_CTRL9_Eth.sig <- dxr_CTRL9_Eth.sig[dxr_CTRL9_Eth.sig$exonBaseMean >= 10,]
+```
+
+Nothing significant
+
+
+#### FH Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "FH"] <- "condition"
+```
+
+```{r}
+dxd_CTRL9_FH = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_CTRL9_FH <- estimateSizeFactors(dxd_CTRL9_FH)
+dxd_CTRL9_FH <- estimateDispersions(dxd_CTRL9_FH)
+plotDispEsts(dxd_CTRL9_FH)
+```
+
+```{r}
+dxr_CTRL9_FH = DEXSeq(dxd_CTRL9_FH)
+dxr_CTRL9_FHdf <- as.data.frame(dxr_CTRL9_FH)
+```
+
+MA plot:
+```{r}
+plotMA(dxr_CTRL9_FH)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_CTRL9_FH.sig <- as.data.frame(dxr_CTRL9_FH[dxr_CTRL9_FH$padj < 0.05 & !is.na(dxr_CTRL9_FH$padj),]) #padj <0.05
+dxr_CTRL9_FH.sig <- dxr_CTRL9_FH.sig[dxr_CTRL9_FH.sig$log2fold_treated_control < -0.58 | dxr_CTRL9_FH.sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_CTRL9_FH.sig <- dxr_CTRL9_FH.sig[dxr_CTRL9_FH.sig$exonBaseMean >= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_CTRL9_Pb.sig <- dxr_CTRL9_Pb.sig[order(dxr_CTRL9_Pb.sig$padj),]
+```
+
+```{r}
+plotDEXSeq( dxr_CTRL9_FH, "ENSG00000137628.16", legend=TRUE, displayTranscripts = TRUE, splicing = TRUE, expression = FALSE, cex.axis=1.2, cex=1.3, lwd=2)
+```
+
+#### Zn Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "Zn"] <- "condition"
+```
+
+```{r}
+dxd_CTRL9_Zn = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_CTRL9_Zn <- estimateSizeFactors(dxd_CTRL9_Zn)
+dxd_CTRL9_Zn <- estimateDispersions(dxd_CTRL9_Zn)
+plotDispEsts(dxd_CTRL9_Zn)
+```
+
+```{r}
+dxr_CTRL9_Zn = DEXSeq(dxd_CTRL9_Zn)
+dxr_CTRL9_Zndf <- as.data.frame(dxr_CTRL9_Zn)
+```
+
+MA plot:
+```{r}
+plotMA(dxr_CTRL9_Zn)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_CTRL9_Zn.sig <- as.data.frame(dxr_CTRL9_Zn[dxr_CTRL9_Zn$padj < 0.05 & !is.na(dxr_CTRL9_Zn$padj),]) #padj <0.05
+dxr_CTRL9_Zn.sig <- dxr_CTRL9_Zn.sig[dxr_CTRL9_Zn.sig$log2fold_treated_control < -0.58 | dxr_CTRL9_Zn.sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_CTRL9_Zn.sig <- dxr_CTRL9_Zn.sig[dxr_CTRL9_Zn.sig$exonBaseMean >= 10,]
+```
+
+Nothing significant

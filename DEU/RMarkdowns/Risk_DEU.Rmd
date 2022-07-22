@@ -1,0 +1,392 @@
+---
+title: "GeEn_risk_DEU2"
+author: "Marika Oksanen"
+date: "9/8/2021"
+output: html_document
+---
+
+
+This RMarkdown contains the Rcode to find differentially used exons between treatments including risk group cell lines, ASD12 and ASD17. DEXSeq has to be run with two different models, full model and reduced model. The reduced model informs DEXSeq to block differences between cell line expression levels so that the output includes only the exons that are common for the risk group
+
+```{r}
+library(DEXSeq)
+library(biomaRt)
+library(VennDiagram)
+library(tidyverse)
+```
+
+Find the countfiles that are calculated using python scripts
+```{r}
+countFiles = list.files("/Users/k6-c02dm8d6ml7h/Desktop/Splicing/CountFiles/Risk", pattern=".txt$", full.names=TRUE)
+```
+
+```{r}
+flattenedFile = list.files("/Users/k6-c02dm8d6ml7h/Desktop/Splicing", pattern="gff$", full.names=TRUE)
+```
+
+```{r}
+sample_info <- read.delim("~/Desktop//K.Tammimies_20_01_sample_info.txt", header=TRUE)
+sample_info <- separate(sample_info, "User.ID", into = c("sample_number", "cell_line", "treatment"), sep = "_", remove = FALSE )
+sample_info <- sample_info[1:43,]
+```
+
+```{r}
+source("../R_codes/BPA_F.R")
+source("../R_codes/Eth_F.R")
+source("../R_codes/FH_F.R")
+source("../R_codes/Zn_F.R")
+source("../R_codes/VPA_F.R")
+source("../R_codes/Pb_F.R")
+source("../R_codes/risk_F.R")
+```
+
+```{r}
+sample_info$Pb <- Pb_F(sample_info)
+sample_info$VPA <- VPA_F(sample_info)
+sample_info$BPA <- BPA_F(sample_info)
+sample_info$Eth <- Eth_F(sample_info)
+sample_info$FH <- FH_F(sample_info)
+sample_info$Zn <- Zn_F(sample_info)
+sample_info$risk <- risk_F(sample_info)
+```
+
+#### Pb Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "Pb"] <- "condition"
+sample_info <- sample_info[sample_info[, "risk"] == "risk",]
+```
+
+```{r}
+formulaFullModel    =  ~ sample + exon + cell_line:exon + condition:exon
+formulaReducedModel =  ~ sample + exon + cell_line:exon 
+```
+
+```{r}
+dxd_risk_Pb = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_risk_Pb <- estimateSizeFactors(dxd_risk_Pb)
+dxd_risk_Pb <- estimateDispersions( dxd_risk_Pb, formula = formulaFullModel )
+plotDispEsts(dxd_risk_Pb)
+```
+
+```{r}
+dxd_risk_Pb = testForDEU( dxd_risk_Pb, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_risk_Pb <- estimateExonFoldChanges(dxd_risk_Pb)
+```
+
+```{r}
+dxr_risk_Pb = DEXSeqResults( dxd_risk_Pb )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_risk_Pb)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_risk_Pb_sig <- as.data.frame(dxr_risk_Pb[dxr_risk_Pb$padj < 0.05 & !is.na(dxr_risk_Pb$padj),]) #padj <0.05
+dxr_risk_Pb_sig <- dxr_risk_Pb_sig[dxr_risk_Pb_sig$log2fold_treated_control < -0.58 | dxr_risk_Pb_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_risk_Pb_sig <- dxr_risk_Pb_sig[dxr_risk_Pb_sig$exonBaseMean>= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_risk_Pb_sig <- dxr_risk_Pb_sig[order(dxr_risk_Pb_sig$padj),]
+```
+
+```{r}
+plotDEXSeq( dxr_risk_Pb, "ENSG00000087086.13", legend=TRUE, cex.axis=1.2, cex=1.3, lwd=2, splicing = TRUE, expression = FALSE)
+```
+
+#### VPA Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "VPA"] <- "condition"
+sample_info <- sample_info[sample_info[, "risk"] == "risk",]
+```
+
+```{r}
+dxd_risk_VPA = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_risk_VPA <- estimateSizeFactors(dxd_risk_VPA)
+dxd_risk_VPA <- estimateDispersions( dxd_risk_VPA, formula = formulaFullModel )
+plotDispEsts(dxd_risk_VPA)
+```
+
+```{r}
+dxd_risk_VPA = testForDEU( dxd_risk_VPA, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_risk_VPA <- estimateExonFoldChanges(dxd_risk_VPA)
+```
+
+```{r}
+dxr_risk_VPA = DEXSeqResults( dxd_risk_VPA )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_risk_VPA)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_risk_VPA_sig <- as.data.frame(dxr_risk_VPA[dxr_risk_VPA$padj < 0.05 & !is.na(dxr_risk_VPA$padj),]) #padj <0.05
+dxr_risk_VPA_sig <- dxr_risk_VPA_sig[dxr_risk_VPA_sig$log2fold_treated_control < -0.58 | dxr_risk_VPA_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_risk_VPA_sig <- dxr_risk_VPA_sig[dxr_risk_VPA_sig$exonBaseMean>= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_risk_VPA_sig <- dxr_risk_VPA_sig[order(dxr_risk_VPA_sig$padj),]
+```
+
+```{r}
+plotDEXSeq( dxr_risk_VPA, "ENSG00000145685.13", legend=TRUE, cex.axis=1.2, cex=1.3, lwd=2, splicing = TRUE, expression = FALSE)
+```
+
+#### BPA Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "BPA"] <- "condition"
+sample_info <- sample_info[sample_info[, "risk"] == "risk",]
+```
+
+```{r}
+dxd_risk_BPA = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_risk_BPA <- estimateSizeFactors(dxd_risk_BPA)
+dxd_risk_BPA <- estimateDispersions( dxd_risk_BPA, formula = formulaFullModel )
+plotDispEsts(dxd_risk_BPA)
+```
+
+```{r}
+dxd_risk_BPA = testForDEU( dxd_risk_BPA, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_risk_BPA <- estimateExonFoldChanges(dxd_risk_BPA)
+```
+
+```{r}
+dxr_risk_BPA = DEXSeqResults( dxd_risk_BPA )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_risk_BPA)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_risk_BPA_sig <- as.data.frame(dxr_risk_BPA[dxr_risk_BPA$padj < 0.05 & !is.na(dxr_risk_BPA$padj),]) #padj <0.05
+dxr_risk_BPA_sig <- dxr_risk_BPA_sig[dxr_risk_BPA_sig$log2fold_treated_control < -0.58 | dxr_risk_BPA_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_risk_BPA_sig <- dxr_risk_BPA_sig[dxr_risk_BPA_sig$exonBaseMean>= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_risk_BPA_sig <- dxr_risk_BPA_sig[order(dxr_risk_BPA_sig$padj),]
+```
+
+```{r}
+plotDEXSeq( dxr_risk_BPA, "ENSG00000145685.13", legend=TRUE, cex.axis=1.2, cex=1.3, lwd=2, splicing = TRUE, expression = FALSE)
+```
+
+#### FH Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "FH"] <- "condition"
+sample_info <- sample_info[sample_info[, "risk"] == "risk",]
+```
+
+```{r}
+formulaFullModel    =  ~ sample + exon + cell_line:exon + condition:exon
+formulaReducedModel =  ~ sample + exon + cell_line:exon 
+```
+
+```{r}
+dxd_risk_FH = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_risk_FH <- estimateSizeFactors(dxd_risk_FH)
+dxd_risk_FH <- estimateDispersions( dxd_risk_FH, formula = formulaFullModel )
+plotDispEsts(dxd_risk_FH)
+```
+
+```{r}
+dxd_risk_FH = testForDEU( dxd_risk_FH, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_risk_FH <- estimateExonFoldChanges(dxd_risk_FH)
+```
+
+```{r}
+dxr_risk_FH = DEXSeqResults( dxd_risk_FH )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_risk_FH)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_risk_FH_sig <- as.data.frame(dxr_risk_FH[dxr_risk_FH$padj < 0.05 & !is.na(dxr_risk_FH$padj),]) #padj <0.05
+```
+
+
+Nothing significant
+
+
+#### Ethanol Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "Eth"] <- "condition"
+sample_info <- sample_info[sample_info[, "risk"] == "risk",]
+```
+
+```{r}
+formulaFullModel    =  ~ sample + exon + cell_line:exon + condition:exon
+formulaReducedModel =  ~ sample + exon + cell_line:exon 
+```
+
+```{r}
+dxd_risk_Eth = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_risk_Eth <- estimateSizeFactors(dxd_risk_Eth)
+dxd_risk_Eth <- estimateDispersions( dxd_risk_Eth, formula = formulaFullModel )
+plotDispEsts(dxd_risk_Eth)
+```
+
+```{r}
+dxd_risk_Eth = testForDEU( dxd_risk_Eth, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_risk_Eth <- estimateExonFoldChanges(dxd_risk_Eth)
+```
+
+```{r}
+dxr_risk_Eth = DEXSeqResults( dxd_risk_Eth )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_risk_Eth)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_risk_Eth_sig <- as.data.frame(dxr_risk_Eth[dxr_risk_Eth$padj < 0.05 & !is.na(dxr_risk_Eth$padj),]) #padj <0.05
+dxr_risk_Eth_sig <- dxr_risk_Eth_sig[dxr_risk_Eth_sig$log2fold_treated_control < -0.58 | dxr_risk_Eth_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_risk_Eth_sig <- dxr_risk_Eth_sig[dxr_risk_Eth_sig$exonBaseMean>= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_risk_Eth_sig <- dxr_risk_Eth_sig[order(dxr_risk_Eth_sig$padj),]
+```
+
+```{r}
+plotDEXSeq( dxr_risk_Eth, "ENSG00000126870.15", legend=TRUE, cex.axis=1.2, cex=1.3, lwd=2, splicing = TRUE, expression = FALSE)
+```
+
+#### Zn Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "Zn"] <- "condition"
+sample_info <- sample_info[sample_info[, "risk"] == "risk",]
+```
+
+```{r}
+formulaFullModel    =  ~ sample + exon + cell_line:exon + condition:exon
+formulaReducedModel =  ~ sample + exon + cell_line:exon 
+```
+
+```{r}
+dxd_risk_Zn = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_risk_Zn <- estimateSizeFactors(dxd_risk_Zn)
+dxd_risk_Zn <- estimateDispersions( dxd_risk_Zn, formula = formulaFullModel )
+plotDispEsts(dxd_risk_Zn)
+```
+
+```{r}
+dxd_risk_Zn = testForDEU( dxd_risk_Zn, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_risk_Zn <- estimateExonFoldChanges(dxd_risk_Zn)
+```
+
+```{r}
+dxr_risk_Zn = DEXSeqResults( dxd_risk_Zn )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_risk_Zn)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_risk_Zn_sig <- as.data.frame(dxr_risk_Zn[dxr_risk_Zn$padj < 0.05 & !is.na(dxr_risk_Zn$padj),]) #padj <0.05
+dxr_risk_Zn_sig <- dxr_risk_Zn_sig[dxr_risk_Zn_sig$log2fold_treated_control < -0.58 | dxr_risk_Zn_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+```
+
+Nothing significant

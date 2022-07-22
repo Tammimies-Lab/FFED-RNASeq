@@ -1,0 +1,39 @@
+---
+title: "SplicingEnrichmentPlot"
+author: "Marika Oksanen"
+date: "4/5/2022"
+output: html_document
+---
+Import data, filter and order by enrichment
+```{r}
+GOBP <- read.delim("enrichment_results_wg_BPA.txt")
+GOBP <- GOBP[(GOBP$FDR < 0.05),]
+GOBP <- GOBP[order(GOBP$enrichmentRatio, decreasing = TRUE),]
+GOBP$description <- toupper(GOBP$description) #change term names to capital letters
+```
+
+
+Make data frame
+```{r}
+NAME <- c(GOBP$description)
+EnrichmentRatio <- c(GOBP$enrichmentRatio)
+SIZE <- c(GOBP$overlap)
+Pval <- c(GOBP$pValue)
+Qval <- c(GOBP$FDR)
+Sample <- c(rep("AF22", 18))
+GOtable <- data.frame(NAME, EnrichmentRatio, SIZE, Pval, Qval, Sample)
+GOtable$Sample <- factor(GOtable$Sample, levels = unique(GOtable$Sample))
+GOtable$NAME <- factor(GOtable$NAME, levels = rev(unique(GOtable$NAME)))
+```
+
+Plot
+```{r}
+AF22_GO <- ggplot(GOtable) +
+   geom_point(aes(x = EnrichmentRatio, y = NAME, size=SIZE, fill=Qval), shape = 21,stroke = 2)+
+   xlab("Enrichment Ratio")+
+   ylab("")+
+   theme_bw()+
+   scale_fill_gradient(name="FDR",low="#E69F00", high="gray", breaks=c(0.01, 0.05, 0.1), limits=c(0,0.1))+
+   theme(plot.margin = unit(c(1, 0, 1, 0), "cm"))
+AF22_GO
+```

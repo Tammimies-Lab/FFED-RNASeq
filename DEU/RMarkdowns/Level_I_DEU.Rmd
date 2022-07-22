@@ -1,0 +1,411 @@
+---
+title: "GeEn_Splicing"
+output: html_document
+---
+
+## Preparations
+
+Flattened annotation file was created with python script dexseq_prepare_annotation.py
+-r was set to no --> shared exons are excluded
+
+genes.gtf was loaded from Rackham:
+/sw/data/uppnex/igenomes/Homo_sapiens/NCBI/GRCh38/Annotation/Genes.gencode/genes.gtf
+
+Command line: 
+python3 dexseq_prepare_annotation.py -r no genes.gtf genes.gff
+
+
+The countfiles were created using python script dexseq_count.py with following flags
+-p yes -r pos -s yes -f bam
+
+Command line:
+python3 dexseq_count.py -p yes -r pos -s yes -f bam genes.gff [Sample]Aligned.sortedByCoord.out.markDups.bam [Sample].txt
+
+## DEXSeq
+
+```{r}
+library(DEXSeq)
+library(biomaRt)
+library(VennDiagram)
+library(tidyverse)
+```
+
+```{r}
+countFiles = list.files("/Users/k6-c02dm8d6ml7h/Desktop/Splicing/CountFiles", pattern=".txt$", full.names=TRUE)
+```
+
+```{r}
+flattenedFile = list.files("/Users/k6-c02dm8d6ml7h/Desktop/Splicing/", pattern="gff$", full.names=TRUE)
+```
+
+```{r}
+sample_info <- read.delim("~/Desktop//K.Tammimies_20_01_sample_info.txt", header=TRUE)
+```
+
+```{r}
+sample_info <- separate(sample_info, "User.ID", into = c("sample_number", "cell_line", "treatment"), sep = "_", remove = FALSE )
+sample_info <- sample_info[1:43,]
+```
+
+```{r}
+source("../R_codes/BPA_F.R")
+source("../R_codes/Eth_F.R")
+source("../R_codes/FH_F.R")
+source("../R_codes/Pb_F.R")
+source("../R_codes//VPA_F.R")
+source("../R_codes/Zn_F.R")
+```
+
+```{r}
+sample_info$Pb <- Pb_F(sample_info)
+sample_info$VPA <- VPA_F(sample_info)
+sample_info$BPA <- BPA_F(sample_info)
+sample_info$Eth <- Eth_F(sample_info)
+sample_info$FH <- FH_F(sample_info)
+sample_info$Zn <- Zn_F(sample_info)
+```
+
+#### Pb Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "Pb"] <- "condition"
+```
+
+```{r}
+formulaFullModel    =  ~ sample + exon + cell_line:exon + condition:exon
+formulaReducedModel =  ~ sample + exon + cell_line:exon 
+```
+
+```{r}
+dxd_Pb = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+
+```{r}
+dxd_Pb <- estimateSizeFactors(dxd_Pb)
+dxd_Pb <- estimateDispersions( dxd_Pb, formula = formulaFullModel )
+plotDispEsts(dxd_Pb)
+```
+
+```{r}
+dxd_Pb = testForDEU( dxd_Pb, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_Pb <- estimateExonFoldChanges(dxd_Pb)
+```
+
+```{r}
+dxr_Pb = DEXSeqResults( dxd_Pb )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_Pb)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_Pb_sig <- as.data.frame(dxr_Pb[dxr_Pb$padj < 0.05 & !is.na(dxr_Pb$padj),]) #padj <0.05
+dxr_Pb_sig <- dxr_Pb_sig[dxr_Pb_sig$log2fold_treated_control < -0.58 | dxr_Pb_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_Pb_sig <- dxr_Pb_sig[dxr_Pb_sig$exonBaseMean>= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_Pb_sig <- dxr_Pb_sig[order(dxr_Pb_sig$padj),]
+```
+
+```{r}
+plotDEXSeq( dxr_Pb, "ENSG00000109339.18", legend=TRUE, cex.axis=1.2, cex=1.3, lwd=2, splicing = TRUE, expression = FALSE)
+```
+
+#### BPA Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "BPA"] <- "condition"
+```
+
+```{r}
+dxd_BPA = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_BPA <- estimateSizeFactors(dxd_BPA)
+dxd_BPA <- estimateDispersions( dxd_BPA, formula = formulaFullModel )
+plotDispEsts(dxd_BPA)
+```
+
+```{r}
+dxd_BPA = testForDEU( dxd_BPA, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_BPA <- estimateExonFoldChanges(dxd_BPA)
+```
+
+```{r}
+dxr_BPA = DEXSeqResults( dxd_BPA )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_BPA)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_BPA_sig <- as.data.frame(dxr_BPA[dxr_BPA$padj < 0.05 & !is.na(dxr_BPA$padj),]) #padj <0.05
+dxr_BPA_sig <- dxr_BPA_sig[dxr_BPA_sig$log2fold_treated_control < -0.58 | dxr_BPA_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_BPA_sig <- dxr_BPA_sig[dxr_BPA_sig$exonBaseMean>= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_BPA_sig <- dxr_BPA_sig[order(dxr_BPA_sig$padj),]
+```
+
+```{r}
+plotDEXSeq( dxr_BPA, "ENSG00000198467.13", legend=TRUE, cex.axis=1.2, cex=1.3, lwd=2, splicing = TRUE, expression = FALSE)
+```
+
+#### VPA Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "VPA"] <- "condition"
+```
+
+```{r}
+dxd_VPA = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_VPA <- estimateSizeFactors(dxd_VPA)
+dxd_VPA <- estimateDispersions( dxd_VPA, formula = formulaFullModel )
+plotDispEsts(dxd_VPA)
+```
+
+```{r}
+dxd_VPA = testForDEU( dxd_VPA, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_VPA <- estimateExonFoldChanges(dxd_VPA)
+```
+
+```{r}
+dxr_VPA = DEXSeqResults( dxd_VPA )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_VPA)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_VPA_sig <- as.data.frame(dxr_VPA[dxr_VPA$padj < 0.05 & !is.na(dxr_VPA$padj),]) #padj <0.05
+dxr_VPA_sig <- dxr_VPA_sig[dxr_VPA_sig$log2fold_treated_control < -0.58 | dxr_VPA_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_VPA_sig <- dxr_VPA_sig[dxr_VPA_sig$exonBaseMean>= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_VPA_sig <- dxr_VPA_sig[order(dxr_VPA_sig$padj),]
+```
+
+```{r}
+plotDEXSeq( dxr_BPA, "ENSG00000109339.18", legend=TRUE, cex.axis=1.2, cex=1.3, lwd=2, splicing = TRUE, expression = FALSE)
+```
+
+#### FH Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "FH"] <- "condition"
+```
+
+```{r}
+dxd_FH = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_FH <- estimateSizeFactors(dxd_FH)
+dxd_FH <- estimateDispersions( dxd_FH, formula = formulaFullModel )
+plotDispEsts(dxd_FH)
+```
+
+```{r}
+dxd_FH = testForDEU( dxd_FH, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_FH <- estimateExonFoldChanges(dxd_FH)
+```
+
+```{r}
+dxr_FH = DEXSeqResults( dxd_FH )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_FH)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_FH_sig <- as.data.frame(dxr_FH[dxr_FH$padj < 0.05 & !is.na(dxr_FH$padj),]) #padj <0.05
+dxr_FH_sig <- dxr_FH_sig[dxr_FH_sig$log2fold_treated_control < -0.58 | dxr_FH_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_FH_sig <- dxr_FH_sig[dxr_FH_sig$exonBaseMean>= 10,]
+```
+
+Nothing significant
+
+#### Ethanol Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "Eth"] <- "condition"
+```
+
+```{r}
+dxd_Eth = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_Eth <- estimateSizeFactors(dxd_Eth)
+dxd_Eth <- estimateDispersions( dxd_Eth, formula = formulaFullModel )
+plotDispEsts(dxd_Eth)
+```
+
+```{r}
+dxd_Eth = testForDEU( dxd_Eth, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_Eth <- estimateExonFoldChanges(dxd_Eth)
+```
+
+```{r}
+dxr_Eth = DEXSeqResults( dxd_Eth )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_Eth)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_Eth_sig <- as.data.frame(dxr_Eth[dxr_Eth$padj < 0.05 & !is.na(dxr_Eth$padj),]) #padj <0.05
+dxr_Eth_sig <- dxr_Eth_sig[dxr_Eth_sig$log2fold_treated_control < -0.58 | dxr_Eth_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_Eth_sig <- dxr_Eth_sig[dxr_Eth_sig$exonBaseMean>= 10,]
+```
+
+Nothing significant
+
+#### Zn Treatment
+
+```{r}
+names(sample_info)[names(sample_info) == "Zn"] <- "condition"
+```
+
+```{r}
+dxd_Zn = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_Zn <- estimateSizeFactors(dxd_Zn)
+dxd_Zn <- estimateDispersions( dxd_Zn, formula = formulaFullModel )
+plotDispEsts(dxd_Zn)
+```
+
+```{r}
+dxd_Zn = testForDEU( dxd_Zn, 
+    reducedModel = formulaReducedModel, 
+        fullModel = formulaFullModel )
+```
+
+```{r}
+dxd_Zn <- estimateExonFoldChanges(dxd_Zn)
+```
+
+```{r}
+dxr_Zn = DEXSeqResults( dxd_Zn )
+```
+
+MA plot:
+```{r}
+plotMA(dxr_Zn)
+```
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_Zn_sig <- as.data.frame(dxr_Zn[dxr_Zn$padj < 0.05 & !is.na(dxr_Zn$padj),]) #padj <0.05
+dxr_Zn_sig <- dxr_Zn_sig[dxr_Zn_sig$log2fold_treated_control < -0.58 | dxr_Zn_sig$log2fold_treated_control > 0.58,]  # -1<Log2FC<1
+dxr_Zn_sig <- dxr_Zn_sig[dxr_Zn_sig$exonBaseMean>= 10,]
+```
+
+Nothing significant
+
+
+
+### ORA analysis preparation
+
+
+```{r}
+Pbgenes <- sub(pattern = "\\.\\d+$", replacement = "", dxr_Pb_sig$groupID)
+Pbgenes <- as.data.frame(unique(Pbgenes))
+```
+
+```{r}
+BPAgenes <- sub(pattern = "\\.\\d+$", replacement = "", dxr_BPA_sig$groupID)
+BPAgenes <- as.data.frame(unique(BPAgenes))
+```
+
+```{r}
+write.table(Pbgenes, file = "../ORA/Pbgenes.txt", sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+```{r}
+backgroundGeneList <- as.data.frame(dxr_Pb)
+backgroundGeneList <- backgroundGeneList[rowSums(backgroundGeneList[,16:21])>10,]
+backgroundGeneList <- backgroundGeneList[,1]
+backgroundGeneList <- sub(pattern = "\\.\\d+$", replacement = "", backgroundGeneList)
+backgroundGeneList <- unique(backgroundGeneList)
+backgroundGeneList <- as.data.frame(backgroundGeneList)
+colnames(backgroundGeneList) <- NULL
+write.table(backgroundGeneList, file = "../ORA/BackgroundgenelistPb", sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
+```

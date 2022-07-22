@@ -1,0 +1,141 @@
+---
+title: "AF22_DEU"
+author: "Marika Oksanen"
+date: '2022-06-17'
+output: html_document
+---
+
+
+```{r}
+library(DEXSeq)
+library(biomaRt)
+library(VennDiagram)
+library(tidyverse)
+```
+## Preparations
+
+Flattened annotation file was created with python script dexseq_prepare_annotation.py
+-r was set to no --> shared exons are excluded
+
+Command line: 
+python3 dexseq_prepare_annotation.py -r no genes.gtf genes.gff
+
+
+The countfiles were created using python script dexseq_count.py with following flags
+-p yes -r pos -s yes -f bam
+
+Command line:
+python3 dexseq_count.py -p yes -r pos -s yes -f bam genes.gff [Sample]Aligned.sortedByCoord.out.markDups.bam [Sample].txt
+
+## DEXSeq
+
+
+Path to the countfiles
+```{r}
+countFiles = list.files("/Users/k6-c02dm8d6ml7h/Desktop/K6_Tammimies/GeEn_Project/Splicing/CountFiles/AF22", pattern=".txt$", full.names=TRUE)
+countFiles
+```
+
+```{r}
+flattenedFile = list.files("/Users/k6-c02dm8d6ml7h/Desktop/K6_Tammimies/GeEn_Project/Splicing", pattern="gff$", full.names=TRUE)
+flattenedFile
+```
+
+```{r}
+sample_info <- read.delim("~/Desktop//K.Tammimies_20_01_sample_info.txt", header=TRUE)
+```
+
+```{r}
+sample_info <- separate(sample_info, "User.ID", into = c("sample_number", "cell_line", "treatment"), sep = "_", remove = FALSE )
+sample_info <- sample_info[1:43,]
+```
+
+
+![Treatment info](RNAseq_FF_ModifiedTreatmentPlan.png)
+
+BPA:
+
+```{r}
+source("/Users/k6-c02dm8d6ml7h/Desktop/K6_Tammimies/GeEn_Project/Splicing/R_codes/BPA_F.R")
+```
+
+BPA_F <- function(SampleData){
+  BPA_vector <- rep(NA, 43)
+  for (i in 1:nrow(SampleData)) {
+    if(SampleData[i,5] == "E1" ){
+      BPA_vector[i] <- "control"
+    }
+    if(SampleData[i,5] == "E2") {
+      BPA_vector[i] <- "control"
+    }
+    if(SampleData[i,5] == "E3" ){
+      BPA_vector[i] <- "treated"
+    }
+    if(SampleData[i,5] == "E4" ){
+      BPA_vector[i] <- "treated"
+    }
+    if(SampleData[i,5] == "E5"  ){
+      BPA_vector[i] <- "treated"
+    }
+    if(SampleData[i,5] == "E6"  ){
+      BPA_vector[i] <- "treated"
+    }
+    if(SampleData[i,5] ==  "E7" ){
+      BPA_vector[i] <- "control"
+    }
+    if(SampleData[i,5] == "E8" ){
+      BPA_vector[i] <- "control"
+    }
+  }
+  return(BPA_vector)
+}
+
+```{r}
+sample_info$BPA <- BPA_F(sample_info)
+sample_info <- sample_info[sample_info[, "cell_line"] == "AF22",]
+names(sample_info)[names(sample_info) == "BPA"] <- "condition"
+sample_info <- sample_info[-c(8:10),]
+```
+
+```{r}
+dxd_AF22_BPA2 = DEXSeqDataSetFromHTSeq(
+   countFiles,
+   sampleData=sample_info,
+   design= ~ User.ID + exon + condition:exon,
+   flattenedfile=flattenedFile )
+```
+
+```{r}
+dxd_AF22_BPA2 <- estimateSizeFactors(dxd_AF22_BPA2)
+dxd_AF22_BPA2 <- estimateDispersions(dxd_AF22_BPA2)
+plotDispEsts(dxd_AF22_BPA2)
+```
+
+
+```{r}
+dxr_AF22_BPA2 = DEXSeq(dxd_AF22_BPA2)
+```
+
+MA plot:
+```{r}
+plotMA(dxr_AF22_BPA2)
+```
+
+
+Collect significant exons/genes into a data frame:
+```{r}
+dxr_AF22_BPA2_sig <- as.data.frame(dxr_AF22_BPA2[dxr_AF22_BPA2$padj < 0.05 & !is.na(dxr_AF22_BPA2$padj),]) #padj <0.05
+dxr_AF22_BPA2_sig <- dxr_AF22_BPA2_sig[dxr_AF22_BPA2_sig$log2fold_treated_control < -0.58 | dxr_AF22_BPA2_sig$log2fold_treated_control > 0.58,]  # -0.58<Log2FC<0.58
+dxr_AF22_BPA2_sig <- dxr_AF22_BPA2_sig[dxr_AF22_BPA2_sig$exonBaseMean>= 10,]
+```
+
+sort this data frame by adjusted p-value
+```{r}
+dxr_AF22_BPA2_sig <- dxr_AF22_BPA2_sig[order(dxr_AF22_BPA2_sig$padj),]
+```
+
+Example plot
+```{r}
+plotDEXSeq( dxr_AF22_BPA2, "ENSG00000148308.17", legend=TRUE, cex.axis=1.2, cex=1.3, lwd=2, splicing = TRUE, expression = FALSE)
+```
+
