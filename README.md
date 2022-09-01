@@ -19,8 +19,8 @@ Thank you for showing interest in our manuscript. In this GitHub repository you 
 
 - CTRL<sub>Male</sub> – CTRL9II (Neurotypical Male)
 - CTRL<sub>Female</sub> – AF22 (Neurotypical Female)
-- ASD<sub>HNRNPU</sub> – ASD12BI (Male with ASD diagnoses and *HNRNPU* deletion)
-- ASD<sub>CASK</sub> – ASD17AII (Male with ASD diagnoses and *CASK* mutation)
+- ASD<sub>HNRNPU</sub> – ASD12BI (Male with ASD diagnosis and *HNRNPU* deletion)
+- ASD<sub>CASK</sub> – ASD17AII (Male with ASD diagnosis and *CASK* splice site variant)
 
 ### RNA-seq Analysis – Independent Effects
 
