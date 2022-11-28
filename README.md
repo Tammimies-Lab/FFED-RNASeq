@@ -1,4 +1,4 @@
-# Transcriptomic and functional mapping of autism associated environmental factors in developing human neurons
+# Transcriptomic and functional mapping of autism associated environmental factors in differentiating human neural progenitors
 Abishek Arora (1,2), Martin Becker (1,2), Cátia Marques (3), Marika Oksanen (1,2), Danyang Li (1,2), Francesca Mastropasqua (1,2), Michelle Evelyn Watts (1,2), Manish Arora (4), Anna Falk (5,6), Carsten Oliver Daub (7,8), Ingela Lanekoff (3) and Kristiina Tammimies (1,2)
 
 1.	Center of Neurodevelopmental Disorders (KIND), Centre for Psychiatry Research, Department of Women's and Children's Health, Karolinska Institutet, and Child and Adolescent Psychiatry, Stockholm Health Care Services, Stockholm County Council, Stockholm, Sweden.
