@@ -12,7 +12,7 @@ Abishek Arora (1,2), Martin Becker (1,2), Cátia Marques (3), Marika Oksanen (1,
 
 *Correspondence: [kristiina.tammimies@ki.se](mailto:kristiina.tammimies@ki.se)
 
-**Citation:** Arora, A., Becker, M., Marques, C. et al. Screening autism-associated environmental factors in differentiating human neural progenitors with fractional factorial design-based transcriptomics. Sci Rep 13, 10519 (2023). [https://doi.org/10.1038/s41598-023-37488-0](https://doi.org/10.1038/s41598-023-37488-0)
+**Citation:** Arora, A., Becker, M., Marques, C., Oksanen, M., Li, D., Mastropasqua, F., Watts, M. E., Arora, M., Falk, A., Daub, C. O., Lanekoff, I., & Tammimies, K. (2023). Screening autism-associated environmental factors in differentiating human neural progenitors with fractional factorial design-based transcriptomics. *Scientific Reports, 13*(1), 10519. [https://doi.org/10.1038/s41598-023-37488-0](https://doi.org/10.1038/s41598-023-37488-0)
 
 ## Analysis Pipelines
 
